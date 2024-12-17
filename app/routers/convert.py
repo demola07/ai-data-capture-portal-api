@@ -67,7 +67,7 @@ def create_convert(convert: schemas.ConvertCreate, db: Session = Depends(get_db)
     db.add(new_convert)
     db.commit()
     db.refresh(new_convert)
-    return { status: "success", "data": new_convert }
+    return { "status": "success", "data": new_convert }
     
 
 @router.post("/bulk", status_code=status.HTTP_201_CREATED, response_model=List[schemas.ConvertResponseWrapper])

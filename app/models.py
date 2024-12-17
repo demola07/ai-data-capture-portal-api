@@ -4,12 +4,6 @@ from sqlalchemy.sql.sqltypes import TIMESTAMP
 
 from .database import Base
 from . import utils
-# from enum import Enum
-
-# class Role(str, Enum):
-#     USER = "user"
-#     ADMIN = "admin"
-#     SUPERADMIN = "super-admin"
 
 class Convert(Base):
     __tablename__ = "converts"

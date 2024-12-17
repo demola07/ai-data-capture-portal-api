@@ -7,7 +7,7 @@ class ConvertBase(BaseModel):
     name: str
     gender: str
     email: str
-    phone_number: int
+    phone_number: str
     date_of_birth: str
     relationship_status: str
     country: str
@@ -74,7 +74,7 @@ class TokenData(BaseModel):
 class CounsellorBase(BaseModel):
     name: str
     email: str
-    phone_number: int
+    phone_number: str
     gender: str
     date_of_birth: str
     address: str
@@ -105,3 +105,10 @@ class CounsellorResponseWrapper(BaseModel):
 
 class BulkDelete(BaseModel):
     ids: List[int]
+
+class FileInfo(BaseModel):
+    file_name: str
+    file_type: str
+
+class PresignedURLResponse(BaseModel):
+    upload_urls: List[dict]
