@@ -1,0 +1,33 @@
+name: Production Deploy on Changes
+
+on: 
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pulling git repo
+        uses: actions/checkout@v2
+      - name: Install python version 3.12
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.12"
+      - name: update pip
+        run: python -m pip install --upgrade pip
+      - name: install all dependencies
+        run: pip install -r requirements.txt
+      - name: Start the application
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          sleep 5
+          curl -f http://127.0.0.1:8000/ || exit 1
+        env:
+          ENVIRONMENT: production
+          DEBUG: "False"
+
+      - name: Stop the application
+        run: kill $(lsof -t -i:8000)
+  
