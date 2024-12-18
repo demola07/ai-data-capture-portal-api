@@ -9,7 +9,7 @@ from .. import schemas
 
 router = APIRouter(
     prefix="/uploads",
-    tags=['Upload']
+    tags=['Uploads']
 )
 
 s3_client = boto3.client(

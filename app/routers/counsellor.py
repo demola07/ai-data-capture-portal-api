@@ -8,7 +8,7 @@ from ..database import get_db
 
 router = APIRouter(
     prefix="/counsellors",
-    tags=['Counsellor']
+    tags=['Counsellors']
 )
 
 @router.get("/", response_model=schemas.CounsellorResponseWrapper)
