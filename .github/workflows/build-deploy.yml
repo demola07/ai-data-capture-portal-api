@@ -70,7 +70,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /app/
-            source /venv/bin/activate
+            source venv/bin/activate
             cd /src/
             git pull origin main
             pip install -r requirements.txt
