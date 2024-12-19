@@ -35,7 +35,6 @@ def generate_presigned_urls(files: List[UploadFile], current_user: schemas.UserC
     upload_urls = []
     try:
         for file in files:
-            # unique_file_name = f"{uuid.uuid4()}-{file.file_name}"
             unique_file_name = f"{uuid.uuid4()}-{file.filename}"
             presigned_url = s3_client.generate_presigned_url(
                 "put_object",
@@ -43,7 +42,6 @@ def generate_presigned_urls(files: List[UploadFile], current_user: schemas.UserC
                     "Bucket": settings.S3_BUCKET,
                     "Key": unique_file_name,
                     "ContentType": file.content_type,
-                    # "ContentType": file.file_type,
                 },
                 ExpiresIn=3600,  # URL expires in 1 hour
             )
