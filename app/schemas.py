@@ -115,3 +115,45 @@ class FileInfo(BaseModel):
 
 class PresignedURLResponse(BaseModel):
     upload_urls: List[dict]
+
+
+class CounselleeBase(BaseModel):
+    name: str
+    gender: str
+    email: str
+    phone_number: str
+    date_of_birth: str
+    relationship_status: str
+    country: str
+    state: str
+    address: str
+    nearest_bus_stop: str
+    is_student: bool = False
+    age_group: str
+    school: str
+    occupation: str
+    denomination: str
+    counselling_reason: str
+    counsellor_name: str
+    counsellor_comments: str
+
+
+class CounselleeCreate(CounselleeBase):
+    pass
+
+class CounselleeUpdate(CounselleeBase):
+    pass
+
+class CounselleeResponse(CounselleeBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+        # orm_mode = True
+
+class CounselleeResponseWrapper(BaseModel):
+    status: Optional[str] = None
+    message: Optional[str] = None
+    data: Union[CounselleeResponse, List[CounselleeResponse]]
+    total: Optional[int] = 0

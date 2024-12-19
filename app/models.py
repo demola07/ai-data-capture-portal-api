@@ -28,6 +28,31 @@ class Convert(Base):
     created_at = Column(TIMESTAMP(timezone=True),
                         nullable=False, server_default=text('now()'))
     
+class Counsellee(Base):
+    __tablename__ = "counsellee"
+
+    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    name = Column(String, nullable=True)
+    gender = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    phone_number = Column(String, nullable=True)
+    date_of_birth = Column(String, nullable=True)
+    relationship_status = Column(String, nullable=True)
+    country = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    nearest_bus_stop = Column(String, nullable=True)
+    is_student = Column(Boolean, server_default='FALSE', nullable=True)
+    age_group = Column(String, nullable=True)
+    school = Column(String, nullable=True)
+    occupation = Column(String, nullable=True)
+    denomination = Column(String, nullable=True)
+    counselling_reason= Column(String, nullable=True)
+    counsellor_name= Column(String, nullable=True)
+    counsellor_comments= Column(String, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True),
+                        nullable=False, server_default=text('now()'))
+    
 class Counsellor(Base):
     __tablename__ = "counsellors"
 

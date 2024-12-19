@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import convert, user, auth, counsellor, upload
+from .routers import convert, user, auth, counsellor, counsellee, upload
 from . import models
 from .database import engine
 
@@ -22,6 +22,7 @@ app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(convert.router)
 app.include_router(counsellor.router)
+app.include_router(counsellee.router)
 app.include_router(upload.router)
 
 @app.get("/")
