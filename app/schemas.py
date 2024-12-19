@@ -105,6 +105,7 @@ class CounsellorResponseWrapper(BaseModel):
     status: Optional[str] = None
     message: Optional[str] = None
     data: Union[CounsellorResponse, List[CounsellorResponse]]
+    total: Optional[int] = 0
 
 class BulkDelete(BaseModel):
     ids: List[int]

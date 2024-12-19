@@ -34,7 +34,7 @@ class Counsellee(Base):
     id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
     name = Column(String, nullable=True)
     gender = Column(String, nullable=True)
-    email = Column(String, nullable=True)
+    email = Column(String, nullable=True, unique=True)
     phone_number = Column(String, nullable=True)
     date_of_birth = Column(String, nullable=True)
     relationship_status = Column(String, nullable=True)

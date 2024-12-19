@@ -18,22 +18,28 @@ def get_counsellors(db: Session = Depends(get_db), current_user: schemas.UserCre
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to access this resource"
         )
-    counsellors = db.query(models.Counsellor).filter(
+    query = db.query(models.Counsellor).filter(
         or_(
                 models.Counsellor.name.ilike(f"%{search}%"),
                 models.Counsellor.email.ilike(f"%{search}%"),
                 models.Counsellor.phone_number.ilike(f"%{search}%")
             )
-    ).limit(limit).offset(skip).all()
+    )
+
+     # Get the total count of documents
+    total_count = query.count()
+
+    counsellors = query.limit(limit).offset(skip).all()
 
     if not counsellors:
         return {
             "status": "success",
             "message": "No data found",
-            "data": []
+            "data": [],
+             "total": 0
         }
 
-    return schemas.CounsellorResponseWrapper(status="success", data=[schemas.CounsellorResponse(**counsellor.__dict__) for counsellor in counsellors])
+    return schemas.CounsellorResponseWrapper(status="success", total= total_count, data=[schemas.CounsellorResponse(**counsellor.__dict__) for counsellor in counsellors])
 
 @router.get("/{id}", response_model=schemas.CounsellorResponseWrapper)
 def get_counsellor(id: int, db: Session = Depends(get_db), current_user: schemas.UserCreate = Depends(oauth2.get_current_user)):
@@ -54,6 +60,12 @@ def get_counsellor(id: int, db: Session = Depends(get_db), current_user: schemas
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.CounsellorResponseWrapper)
 def create_counsellor(counsellor: schemas.CounsellorCreate, db: Session = Depends(get_db)):
+    existing_counsellor = db.query(models.Counsellor).filter(models.Counsellor.email == counsellor.email).first()
+    if existing_counsellor:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A counsellor with this email already exists."
+        )
 
     new_counsellor = models.Counsellor(**counsellor.model_dump(exclude={"id"}))
     db.add(new_counsellor)
