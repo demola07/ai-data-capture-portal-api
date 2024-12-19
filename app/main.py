@@ -8,7 +8,8 @@ from .database import engine
 # models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
-origins = ["*"]
+# origins = ["*"]
+origins = ["https://preview--docu-display-fusion.lovable.app", "http://172.24.70.25:8080"]
 
 app.add_middleware(
     CORSMiddleware,
