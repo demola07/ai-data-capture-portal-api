@@ -9,7 +9,7 @@ from .database import engine
 app = FastAPI()
 
 # origins = ["*"]
-origins = ["https://preview--docu-display-fusion.lovable.app", "http://172.24.70.25:8080"]
+origins = ["https://preview--docu-display-fusion.lovable.app", "http://172.24.70.25:8080", "http://www.ymr-front-end-app.s3-website-us-east-1.amazonaws.com"]
 
 app.add_middleware(
     CORSMiddleware,
