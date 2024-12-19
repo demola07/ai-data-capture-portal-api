@@ -12,30 +12,38 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=schemas.ConvertResponseWrapper)
-def get_converts(db: Session = Depends(get_db), current_user: schemas.UserCreate = Depends(oauth2.get_current_user), limit: int = 10, skip: int = 0, search: Optional[str] = ""):
+def get_converts(db: Session = Depends(get_db), current_user: schemas.UserCreate = Depends(oauth2.get_current_user), limit: int = 10, skip: int = 0, searchQuery: Optional[str] = ""):
     if current_user.role not in ("admin", "super-admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to access this resource"
         )
-
-    converts = db.query(models.Convert).filter(
+    
+     # Apply filtering
+    query = db.query(models.Convert).filter(
         or_(
-                models.Convert.name.ilike(f"%{search}%"),
-                models.Convert.email.ilike(f"%{search}%"),
-                models.Convert.phone_number.ilike(f"%{search}%")
-            )
-    ).limit(limit).offset(skip).all()
+            models.Convert.name.ilike(f"%{searchQuery}%"),
+            models.Convert.email.ilike(f"%{searchQuery}%"),
+            models.Convert.phone_number.ilike(f"%{searchQuery}%")
+        )
+    )
+
+    # Get the total count of documents
+    total_count = query.count()
+
+     # Paginate the results
+    converts = query.limit(limit).offset(skip).all()
 
     if not converts:
         return {
             "status": "success",
             "message": "No data found",
-            "data": []
+            "data": [],
+            "total": 0
         }
 
     # return { status: "success", "data": converts }
-    return schemas.ConvertResponseWrapper(status="success", data=[schemas.ConvertResponse(**convert.__dict__) for convert in converts])
+    return schemas.ConvertResponseWrapper(status="success", total= total_count, data=[schemas.ConvertResponse(**convert.__dict__) for convert in converts])
 
 
 @router.get("/{id}", response_model=schemas.ConvertResponseWrapper)

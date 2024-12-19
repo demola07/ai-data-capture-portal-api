@@ -39,6 +39,7 @@ class ConvertResponseWrapper(BaseModel):
     status: Optional[str] = None
     message: Optional[str] = None
     data: Union[ConvertResponse, List[ConvertResponse]]
+    total: Optional[int] = 0
     # data: List[ConvertResponse]
 
 class UserCreate(BaseModel):
@@ -58,12 +59,14 @@ class UserResponse(BaseModel):
     role: utils.Role
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+        # orm_mode = True
 
 
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user: UserResponse
 
 
 class TokenData(BaseModel):
