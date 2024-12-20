@@ -9,7 +9,12 @@ from .database import engine
 app = FastAPI()
 
 # origins = ["*"]
-origins = ["https://preview--docu-display-fusion.lovable.app", "http://172.24.70.25:8080", "http://www.ymr-front-end-app.s3-website-us-east-1.amazonaws.com", "https://id-preview--ba8be7b5-3c14-44c5-92fb-b3906387b4ff.lovable.app"]
+origins = ["https://preview--docu-display-fusion.lovable.app", 
+           "http://172.24.70.25:8080", 
+           "http://www.ymr-front-end-app.s3-website-us-east-1.amazonaws.com", 
+           "https://id-preview--ba8be7b5-3c14-44c5-92fb-b3906387b4ff.lovable.app", 
+           "https://ba8be7b5-3c14-44c5-92fb-b3906387b4ff.lovableproject.com"
+        ]
 
 app.add_middleware(
     CORSMiddleware,
