@@ -25,6 +25,7 @@ class Convert(Base):
     occupation = Column(String, nullable=True)
     denomination = Column(String, nullable=True)
     availability_for_follow_up = Column(Boolean, server_default='TRUE', nullable=False)
+    online=Column(Boolean, server_default='FALSE', nullable=True)
     created_at = Column(TIMESTAMP(timezone=True),
                         nullable=False, server_default=text('now()'))
     
