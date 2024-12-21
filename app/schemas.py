@@ -20,6 +20,7 @@ class ConvertBase(BaseModel):
     occupation: str
     denomination: str
     availability_for_follow_up: bool = True
+    online: bool = False
 
 
 class ConvertCreate(ConvertBase):
@@ -135,8 +136,9 @@ class CounselleeBase(BaseModel):
     occupation: str
     denomination: str
     counselling_reason: str
-    counsellor_name: str
-    counsellor_comments: str
+    counsellor_name: str = ""
+    counsellor_comments: str = ""
+    attended_to: bool = False
 
 
 class CounselleeCreate(CounselleeBase):

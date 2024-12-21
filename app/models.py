@@ -51,6 +51,7 @@ class Counsellee(Base):
     counselling_reason= Column(String, nullable=True)
     counsellor_name= Column(String, nullable=True)
     counsellor_comments= Column(String, nullable=True)
+    attended_to= Column(Boolean, server_default='FALSE', nullable=True)
     created_at = Column(TIMESTAMP(timezone=True),
                         nullable=False, server_default=text('now()'))
     
