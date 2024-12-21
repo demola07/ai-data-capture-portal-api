@@ -80,6 +80,8 @@ class CounsellorBase(BaseModel):
     email: str
     phone_number: str
     gender: str
+    country: str
+    state: str
     date_of_birth: str
     address: str
     years_of_experience: int

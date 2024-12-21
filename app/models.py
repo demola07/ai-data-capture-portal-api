@@ -63,6 +63,8 @@ class Counsellor(Base):
     email = Column(String, nullable=False, unique=True)  # Email
     phone_number = Column(String, nullable=True) # Phone Number
     gender = Column(String, nullable=True)     # Gender Enum
+    country = Column(String, nullable=True)
+    state = Column(String, nullable=True)
     date_of_birth = Column(String, nullable=True)
     address = Column(String, nullable=True)          # Address
     years_of_experience = Column(Integer, nullable=True) # Years of Experience
