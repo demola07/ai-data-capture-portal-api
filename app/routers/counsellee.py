@@ -2,7 +2,7 @@ from fastapi import Response, status, HTTPException, Depends, APIRouter
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from .. import models, schemas, oauth2
 from ..database import get_db
 
@@ -88,7 +88,9 @@ def get_counsellee(
             counsellee = db.query(models.Counsellee).filter(models.Counsellee.id == param).first()
         else:
             # Treat param as an email (unprotected route)
-            counsellee = db.query(models.Counsellee).filter(models.Counsellee.email == param).first()
+            counsellee = db.query(models.Counsellee).filter(
+                                    func.lower(func.trim(models.Counsellee.email)) == param.strip().lower()
+                                ).first()
 
         # Handle not found
         if not counsellee:
