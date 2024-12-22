@@ -49,6 +49,11 @@ def get_counsellees(db: Session = Depends(get_db), current_user: schemas.UserCre
         total=total_count,
         data=[schemas.CounselleeResponse.model_validate(counsellee) for counsellee in counsellees]
         )
+    
+    except HTTPException as http_exc:
+        # Let FastAPI handle HTTP exceptions directly
+        raise http_exc
+    
     except SQLAlchemyError as e:
     # Handle SQLAlchemy-specific errors
         raise HTTPException(
@@ -63,32 +68,50 @@ def get_counsellees(db: Session = Depends(get_db), current_user: schemas.UserCre
             detail=f"An unexpected error occurred: {str(e)}"
         )
 
-@router.get("/{id}", response_model=schemas.CounselleeResponseWrapper)
-def get_counsellee(id: int, db: Session = Depends(get_db), current_user: schemas.UserCreate = Depends(oauth2.get_current_user)):
+
+@router.get("/{param}", response_model=schemas.CounselleeResponseWrapper)
+def get_counsellee(
+    param: str,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserCreate | None = Depends(oauth2.get_current_user_if_available),
+):
     try:
-        if current_user.role not in ("admin", "super-admin"):
+        # Check if param is an integer (ID)
+        if param.isdigit():
+            print("enter")
+            param = int(param)  # Convert to integer
+            # Protected route for ID
+            if not current_user or current_user.role not in ("admin", "super-admin"):
+                print("HEREEEEEEEEE")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You are not authorized to access this resource"
+                )
+            counsellee = db.query(models.Counsellee).filter(models.Counsellee.id == param).first()
+        else:
+            # Treat param as an email (unprotected route)
+            counsellee = db.query(models.Counsellee).filter(models.Counsellee.email == param).first()
+
+        # Handle not found
+        if not counsellee:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not authorized to access this resource"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Counsellee with {'id' if isinstance(param, int) else 'email'}: {param} was not found"
             )
 
-        counsellee = db.query(models.Counsellee).filter(models.Counsellee.id == id).first()
-
-        if not counsellee:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail=f"counsellee with id: {id} was not found")
-
-        return { "status": "success", "data": counsellee }
+        return {"status": "success", "data": counsellee}
     
+    except HTTPException as http_exc:
+        # Let FastAPI handle HTTP exceptions directly
+        raise http_exc
+
     except SQLAlchemyError as e:
-        # Handle SQLAlchemy-specific errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database error occurred: {str(e)}"
         )
 
     except Exception as e:
-        # Handle unexpected errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred: {str(e)}"
@@ -117,6 +140,10 @@ def create_counsellee(counsellee: schemas.CounselleeCreate, db: Session = Depend
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Integrity error: {str(e.orig)}"
         )
+    
+    except HTTPException as http_exc:
+        # Let FastAPI handle HTTP exceptions directly
+        raise http_exc
     
     except SQLAlchemyError as e:
         # Handle other general SQLAlchemy errors

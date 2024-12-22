@@ -55,3 +55,17 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user.role = utils.Role(user.role)
 
     return user
+
+# New function: Allow optional authentication
+def get_current_user_if_available(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(database.get_db),
+):
+    try:
+        # Attempt to verify and fetch the user
+        return get_current_user(token, db)
+    except HTTPException as e:
+        if e.status_code == status.HTTP_401_UNAUTHORIZED:
+            # Return None if the credentials are invalid or not provided
+            return None
+        raise e
