@@ -1,13 +1,27 @@
-from jose import JWTError, jwt
-from datetime import datetime, timedelta, timezone
-from . import schemas, database, models
-from fastapi import Depends, status, HTTPException
+from fastapi import Depends, status, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from . import utils
+from jose import JWTError, jwt
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
+from . import schemas, database, models
 from .config import settings
+from . import utils
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
+
+def optional_oauth2_scheme(request: Request):
+    # Check if Authorization header is present
+    authorization: str = request.headers.get("Authorization")
+    
+    # If no Authorization header is provided, return None
+    if authorization is None:
+        return None
+    
+    # If Authorization header is present, extract the token
+    token = authorization.split(" ")[1] if authorization.startswith("Bearer ") else None
+    return token
 
 SECRET_KEY = settings.secret_key
 ALGORITHM = settings.algorithm
@@ -58,10 +72,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 # New function: Allow optional authentication
 def get_current_user_if_available(
-    token: str = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(optional_oauth2_scheme),
     db: Session = Depends(database.get_db),
 ):
     try:
+         # If token is None, return None (unauthenticated user)
+        if token is None:
+            return None
+        
         # Attempt to verify and fetch the user
         return get_current_user(token, db)
     except HTTPException as e:

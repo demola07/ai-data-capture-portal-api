@@ -2,8 +2,8 @@ from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
 from .routers import convert, user, auth, counsellor, counsellee, upload
-from . import models
-from .database import engine
+# from . import models
+# from .database import engine
 
 # models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -37,4 +37,4 @@ app.include_router(api_router)
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World - YMR IS HERE - FLOODGATES"}
+    return {"Hello": "World - YMR IS HERE - THE FLOODGATES ARE OPEN!!!"}

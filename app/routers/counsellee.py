@@ -73,16 +73,14 @@ def get_counsellees(db: Session = Depends(get_db), current_user: schemas.UserCre
 def get_counsellee(
     param: str,
     db: Session = Depends(get_db),
-    current_user: schemas.UserCreate | None = Depends(oauth2.get_current_user_if_available),
+    current_user: Optional[schemas.UserCreate] = Depends(oauth2.get_current_user_if_available),
 ):
     try:
         # Check if param is an integer (ID)
         if param.isdigit():
-            print("enter")
             param = int(param)  # Convert to integer
             # Protected route for ID
             if not current_user or current_user.role not in ("admin", "super-admin"):
-                print("HEREEEEEEEEE")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="You are not authorized to access this resource"
