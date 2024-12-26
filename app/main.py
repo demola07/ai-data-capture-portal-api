@@ -15,7 +15,7 @@ origins = ["https://preview--docu-display-fusion.lovable.app",
            "https://id-preview--ba8be7b5-3c14-44c5-92fb-b3906387b4ff.lovable.app", 
            "https://ba8be7b5-3c14-44c5-92fb-b3906387b4ff.lovableproject.com",
            "http://www.ymrcounselling.com.s3-website-us-east-1.amazonaws.com",
-           "https://ymr-counselling.vercel.app",
+           "https://ymr-counselling.vercel.app/",
            "https://ymrcounselling.com",
         ]
 
