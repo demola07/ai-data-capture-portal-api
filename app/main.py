@@ -16,7 +16,7 @@ origins = ["https://preview--docu-display-fusion.lovable.app",
            "https://ba8be7b5-3c14-44c5-92fb-b3906387b4ff.lovableproject.com",
            "http://www.ymrcounselling.com.s3-website-us-east-1.amazonaws.com",
            "https://ymr-counselling.vercel.app/",
-           "https://ymrcounselling.com",
+           "https://www.ymrcounselling.com/",
         ]
 
 app.add_middleware(
