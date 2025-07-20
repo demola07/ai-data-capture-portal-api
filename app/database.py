@@ -32,7 +32,8 @@ from sqlalchemy.exc import OperationalError
 import time
 from .config import settings
 
-SQLALCHEMY_DATABASE_URL = f'postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}'
+# SQLALCHEMY_DATABASE_URL = f'postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}'
+SQLALCHEMY_DATABASE_URL = f'postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}/{settings.database_name}?sslmode=require&channel_binding=require'
 
 @retry(wait=wait_fixed(2), stop=stop_after_attempt(5), reraise=True)
 def get_engine_with_retry():

@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+*.env
+dist/
+build/
+.git/
+.gitignore
+alembic/versions/__pycache__/
+*.log
+.env
+*.sqlite3
