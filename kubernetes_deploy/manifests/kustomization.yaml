@@ -15,7 +15,7 @@ commonLabels:
 resources:
   - namespace.yaml
   - secret.yaml
-  - rbac.yaml
+#  - rbac.yaml
   - deployment.yaml
   - service.yaml
   - gateway.yaml
