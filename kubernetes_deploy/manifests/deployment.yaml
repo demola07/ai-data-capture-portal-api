@@ -1,0 +1,217 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-data-capture-api
+  namespace: ai-data-capture
+  labels:
+    app: ai-data-capture-api
+    version: v1
+    environment: production
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ai-data-capture-api
+  template:
+    metadata:
+      labels:
+        app: ai-data-capture-api
+        version: v1
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      
+      # Image pull secrets for private Docker Hub repository
+      imagePullSecrets:
+      - name: ai-data-capture-registry-secret
+      
+      containers:
+      - name: api
+        image: demola07/ai-data-capture:v1
+        imagePullPolicy: Always
+        
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        
+        # Environment variables pointing to secret files
+        env:
+        # Point to mounted secret files
+        - name: database_hostname
+          value: "/etc/secrets/database_hostname"
+        - name: database_port
+          value: "/etc/secrets/database_port"
+        - name: database_password
+          value: "/etc/secrets/database_password"
+        - name: database_name
+          value: "/etc/secrets/database_name"
+        - name: database_username
+          value: "/etc/secrets/database_username"
+        - name: secret_key
+          value: "/etc/secrets/secret_key"
+        - name: algorithm
+          value: "/etc/secrets/algorithm"
+        - name: access_token_expire_minutes
+          value: "/etc/secrets/access_token_expire_minutes"
+        - name: AWS_ACCESS_KEY
+          value: "/etc/secrets/AWS_ACCESS_KEY"
+        - name: AWS_SECRET_KEY
+          value: "/etc/secrets/AWS_SECRET_KEY"
+        - name: AWS_REGION
+          value: "/etc/secrets/AWS_REGION"
+        - name: S3_BUCKET
+          value: "/etc/secrets/S3_BUCKET"
+        - name: OPENAI_API_KEY
+          value: "/etc/secrets/OPENAI_API_KEY"
+        
+        # Optional: Additional environment variables for app configuration
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        
+        # Resource limits and requests
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        # Startup probe for slow-starting containers
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        
+        # Security context for container
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+        
+        # Volume mounts
+        volumeMounts:
+        # Secret files mount
+        - name: secret-files
+          mountPath: /etc/secrets
+          readOnly: true
+        # Temporary directories
+        - name: tmp
+          mountPath: /tmp
+        - name: app-logs
+          mountPath: /app/logs
+      
+      # Volumes
+      volumes:
+      # Secret files volume
+      - name: secret-files
+        secret:
+          secretName: ai-data-capture-secret
+          defaultMode: 0400  # Read-only for owner only
+          items:
+          - key: database-hostname
+            path: database-hostname
+            mode: 0400
+          - key: database-port
+            path: database-port
+            mode: 0400
+          - key: database-password
+            path: database-password
+            mode: 0400
+          - key: database-name
+            path: database-name
+            mode: 0400
+          - key: database-username
+            path: database-username
+            mode: 0400
+          - key: secret-key
+            path: secret-key
+            mode: 0400
+          - key: algorithm
+            path: algorithm
+            mode: 0400
+          - key: access-token-expire-minutes
+            path: access-token-expire-minutes
+            mode: 0400
+      # Temporary volumes
+      - name: tmp
+        emptyDir: {}
+      - name: app-logs
+        emptyDir: {}
+      
+      # Pod disruption budget considerations
+      # Affinity rules for better distribution
+#      affinity:
+#        podAntiAffinity:
+#          preferredDuringSchedulingIgnoredDuringExecution:
+#          - weight: 100
+#            podAffinityTerm:
+#              labelSelector:
+#                matchExpressions:
+#                - key: app
+#                  operator: In
+#                  values:
+#                  - ai-data-capture-api
+#              topologyKey: kubernetes.io/hostname
+      
+      # Tolerations (if needed for specific node taints)
+      # tolerations:
+      # - key: "node-role"
+      #   operator: "Equal"
+      #   value: "worker"
+      #   effect: "NoSchedule"
+      
+      # Node selector (if needed for specific node requirements)
+      # nodeSelector:
+      #   node-type: worker
+      
+      # Restart policy
+      restartPolicy: Always
+      
+      # DNS policy
+      dnsPolicy: ClusterFirst
+      
+      # Termination grace period
+      terminationGracePeriodSeconds: 30

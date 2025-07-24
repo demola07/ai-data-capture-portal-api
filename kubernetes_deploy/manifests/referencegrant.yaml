@@ -1,0 +1,38 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: ai-data-capture-gateway-ref
+  namespace: ai-data-capture
+  labels:
+    app: ai-data-capture-api
+    environment: production
+spec:
+  # Allow Gateway in ai-data-capture namespace to reference
+  # Secrets in the same namespace for TLS certificates
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: ai-data-capture
+  to:
+  - group: ""
+    kind: Secret
+    name: ai-data-capture-tls-cert
+---
+# Additional ReferenceGrant for cross-namespace access if needed
+# Uncomment if your certificates are in a different namespace (e.g., cert-manager)
+# apiVersion: gateway.networking.k8s.io/v1beta1
+# kind: ReferenceGrant
+# metadata:
+#   name: ai-data-capture-cert-ref
+#   namespace: cert-manager  # or wherever your certificates are stored
+#   labels:
+#     app: ai-data-capture-api
+#     environment: production
+# spec:
+#   from:
+#   - group: gateway.networking.k8s.io
+#     kind: Gateway
+#     namespace: ai-data-capture
+#   to:
+#   - group: ""
+#     kind: Secret

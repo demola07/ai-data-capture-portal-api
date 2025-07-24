@@ -11,7 +11,25 @@ services:
     ports:
       - "2000:8000"        # host:container
     restart: unless-stopped
-    # If you later add a local Postgres service, place both in the same network
+    
+    # Health check configuration
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits (optional but recommended)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
     networks:
       - backend
 

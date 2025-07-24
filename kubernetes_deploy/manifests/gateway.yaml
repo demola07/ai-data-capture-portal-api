@@ -1,0 +1,75 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ai-data-capture-gateway
+  namespace: ai-data-capture
+  labels:
+    app: ai-data-capture-api
+    environment: production
+  annotations:
+    # Direct EC2 Public IP - Simple approach for public VPC
+    # No load balancer needed with public instances + IGW
+    io.cilium/service-type: "NodePort"
+spec:
+  gatewayClassName: cilium
+  listeners:
+  # HTTP listener (redirects to HTTPS)
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+  # HTTPS listener
+  - name: https
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: apidatacapture-store-tls-secret  # cert-manager generated secret
+        kind: Secret
+    allowedRoutes:
+      namespaces:
+        from: Same
+  # Optional: Additional listeners for different protocols or ports
+  # - name: grpc
+  #   port: 9090
+  #   protocol: HTTP
+  #   allowedRoutes:
+  #     namespaces:
+  #       from: Same
+---
+# Gateway Class (if not already created by Cilium)
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: cilium
+  labels:
+    app: ai-data-capture-api
+    environment: production
+spec:
+  controllerName: io.cilium/gateway-controller
+  description: "Cilium Gateway API implementation"
+  parametersRef:
+    group: cilium.io
+    kind: CiliumL7Policy
+    name: cilium-gateway-config
+    namespace: cilium-system
+---
+# TLS Certificate Secret (update with your actual certificate)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ai-data-capture-tls-cert
+  namespace: ai-data-capture
+  labels:
+    app: ai-data-capture-api
+    environment: production
+type: kubernetes.io/tls
+data:
+  # Replace with your actual base64-encoded certificate and key
+  # tls.crt: LS0tLS1CRUdJTi... (base64 encoded certificate)
+  # tls.key: LS0tLS1CRUdJTi... (base64 encoded private key)
+  tls.crt: ""  # Add your base64-encoded certificate here
+  tls.key: ""  # Add your base64-encoded private key here

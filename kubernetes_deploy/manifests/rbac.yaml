@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ai-data-capture-api-sa
+  namespace: ai-data-capture
+  labels:
+    app: ai-data-capture-api
+    environment: production
+automountServiceAccountToken: false  # Security best practice
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ai-data-capture-api-role
+  namespace: ai-data-capture
+  labels:
+    app: ai-data-capture-api
+    environment: production
+rules:
+# Add specific permissions if your app needs to interact with Kubernetes API
+# Example: if your app needs to read ConfigMaps or Secrets
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ai-data-capture-api-rolebinding
+  namespace: ai-data-capture
+  labels:
+    app: ai-data-capture-api
+    environment: production
+subjects:
+- kind: ServiceAccount
+  name: ai-data-capture-api-sa
+  namespace: ai-data-capture
+roleRef:
+  kind: Role
+  name: ai-data-capture-api-role
+  apiGroup: rbac.authorization.k8s.io

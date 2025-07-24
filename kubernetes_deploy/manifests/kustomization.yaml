@@ -1,0 +1,81 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: ai-data-capture-api
+  namespace: ai-data-capture
+
+# Common labels applied to all resources
+commonLabels:
+  app: ai-data-capture-api
+  environment: production
+  managed-by: kustomize
+
+# Resources to include
+resources:
+  - namespace.yaml
+  - secret.yaml
+  - rbac.yaml
+  - deployment.yaml
+  - service.yaml
+  - gateway.yaml
+  - httproute.yaml
+  - referencegrant.yaml
+  - cilium-l7policy.yaml
+  - backendtlspolicy.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - networkpolicy.yaml
+  # Cert-manager resources for automatic TLS
+  - cert-manager-issuer.yaml
+  - certificate.yaml
+
+# Images to update (useful for CI/CD)
+images:
+  - name: demola07/ai-data-capture
+    newTag: v1
+
+# ConfigMap generator (alternative to configmap.yaml)
+# configMapGenerator:
+#   - name: ai-data-capture-config
+#     literals:
+#       - database-hostname=postgres-service.database.svc.cluster.local
+#       - database-port=5432
+#       - database-name=ai_data_capture
+#       - database-username=app_user
+#       - algorithm=HS256
+#       - access-token-expire-minutes=30
+
+# Secret generator (alternative to secret.yaml)
+# secretGenerator:
+#   - name: ai-data-capture-secret
+#     literals:
+#       - database-password=your-password
+#       - secret-key=your-secret-key
+
+# Patches for environment-specific configurations
+# patchesStrategicMerge:
+#   - patches/production-patch.yaml
+
+# JSON patches for specific modifications
+# patchesJson6902:
+#   - target:
+#       group: apps
+#       version: v1
+#       kind: Deployment
+#       name: ai-data-capture-api
+#     path: patches/deployment-patch.yaml
+
+# Namespace for all resources
+namespace: ai-data-capture
+
+# Name prefix for all resources
+namePrefix: ""
+
+# Name suffix for all resources
+nameSuffix: ""
+
+# Replicas count (can override deployment replicas)
+# replicas:
+#   - name: ai-data-capture-api
+#     count: 3
