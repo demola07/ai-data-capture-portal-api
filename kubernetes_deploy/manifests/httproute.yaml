@@ -91,17 +91,12 @@ spec:
         - name: Cache-Control
           value: "public, max-age=3600"
   
-  # Root path redirect or default handling
+  # Root path redirect to API docs
   - matches:
     - path:
         type: Exact
         value: /
-    backendRefs:
-    - name: ai-data-capture-api-service
-      port: 80
-      weight: 100
     filters:
-    # Optional: Redirect root to API docs
     - type: RequestRedirect
       requestRedirect:
         scheme: https

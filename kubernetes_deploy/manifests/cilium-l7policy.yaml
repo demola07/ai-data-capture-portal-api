@@ -81,9 +81,9 @@ spec:
   
   # Allow HTTPS outbound (for external API calls)
   - toFQDNs:
-    - matchName: "*.amazonaws.com"
-    - matchName: "*.github.com"
-    - matchPattern: "*.pypi.org"
+    - matchPattern: '.*\.amazonaws\.com'
+    - matchPattern: '.*\.github\.com'
+    - matchPattern: '.*\.pypi\.org'
     toPorts:
     - ports:
       - port: "443"

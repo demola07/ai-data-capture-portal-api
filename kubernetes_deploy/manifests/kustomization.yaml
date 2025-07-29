@@ -23,7 +23,7 @@ resources:
   - httproute.yaml
   - referencegrant.yaml
   - cilium-l7policy.yaml
-  - backendtlspolicy.yaml
+  # - backendtlspolicy.yaml  # Experimental feature - not supported in v1.0.0
   - hpa.yaml
   - pdb.yaml
   - networkpolicy.yaml
