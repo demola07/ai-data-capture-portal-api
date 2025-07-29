@@ -101,7 +101,7 @@ print_info "Applying Kubernetes manifests..."
 kubectl apply -k ../../manifests/
 
 print_info "Waiting for deployment to be ready..."
-kubectl wait --for=condition=available --timeout=300s deployment/ai-data-capture-deployment -n $NAMESPACE
+kubectl wait --for=condition=available --timeout=300s deployment/ai-data-capture-api -n $NAMESPACE
 
 print_status "Application deployed successfully"
 
@@ -238,7 +238,7 @@ echo "   helm rollback cert-manager 1 -n cert-manager"
 echo
 echo "📊 Monitoring commands:"
 echo "   kubectl get pods -n $NAMESPACE -w"
-echo "   kubectl logs -f deployment/ai-data-capture-deployment -n $NAMESPACE"
+echo "   kubectl logs -f deployment/ai-data-capture-api -n $NAMESPACE"
 echo "   kubectl describe certificate $DOMAIN-tls -n $NAMESPACE"
 echo
 print_status "Deployment completed successfully!"
