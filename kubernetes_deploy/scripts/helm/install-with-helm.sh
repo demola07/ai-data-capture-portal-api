@@ -67,9 +67,6 @@ echo "📦 Step 1: Adding Helm repositories..."
 print_info "Adding cert-manager repository..."
 helm repo add jetstack https://charts.jetstack.io
 
-print_info "Adding Gateway API repository..."
-helm repo add gateway-api https://kubernetes-sigs.github.io/gateway-api
-
 print_info "Updating Helm repositories..."
 helm repo update
 
@@ -79,17 +76,13 @@ print_status "Helm repositories added and updated"
 echo
 echo "🌐 Step 2: Installing Gateway API CRDs..."
 
-if helm list -n gateway-system | grep -q gateway-api; then
-    print_warning "Gateway API already installed, skipping..."
+if kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null; then
+    print_warning "Gateway API CRDs already installed, skipping..."
 else
-    print_info "Creating gateway-system namespace..."
-    kubectl create namespace gateway-system --dry-run=client -o yaml | kubectl apply -f -
+    print_info "Installing Gateway API CRDs directly with kubectl..."
+    print_info "Using Gateway API v1.0.0 (stable release)"
     
-    print_info "Installing Gateway API CRDs with Helm..."
-    helm install gateway-api gateway-api/gateway-api \
-        --namespace gateway-system \
-        --version 1.0.0 \
-        --set image.tag=v1.0.0
+    kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
     
     print_info "Waiting for Gateway API CRDs to be ready..."
     kubectl wait --for condition=established --timeout=60s crd/gateways.gateway.networking.k8s.io
@@ -144,7 +137,7 @@ print_status "All components installed and verified successfully!"
 echo
 echo "📋 Installation Summary:"
 echo "========================"
-echo "✅ Gateway API CRDs: Installed via Helm"
+echo "✅ Gateway API CRDs: Installed via kubectl (official method)"
 echo "✅ cert-manager: Installed via Helm"
 echo
 echo "🔧 Helm Management Commands:"
@@ -159,7 +152,7 @@ echo "helm rollback cert-manager 1 -n cert-manager"
 echo
 echo "# Uninstall (if needed)"
 echo "helm uninstall cert-manager -n cert-manager"
-echo "helm uninstall gateway-api -n gateway-system"
+echo "kubectl delete -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml"
 echo
 echo "🚀 Next steps:"
 echo "1. Deploy your application: kubectl apply -k kubernetes_deploy/manifests/"
