@@ -89,7 +89,7 @@ print_info "Using existing ClusterIssuer manifest with email: $EMAIL"
 print_info "Applying cert-manager ClusterIssuer from manifests..."
 
 # Apply the existing ClusterIssuer manifest
-kubectl apply -f ../../../manifests/cert-manager-issuer.yaml
+kubectl apply -f ../../manifests/cert-manager-issuer.yaml
 
 print_status "ClusterIssuer configured successfully"
 
@@ -98,7 +98,7 @@ echo
 echo "🚀 Step 4: Deploying application manifests..."
 
 print_info "Applying Kubernetes manifests..."
-kubectl apply -k ../../../manifests/
+kubectl apply -k ../../manifests/
 
 print_info "Waiting for deployment to be ready..."
 kubectl wait --for=condition=available --timeout=300s deployment/ai-data-capture-deployment -n $NAMESPACE
