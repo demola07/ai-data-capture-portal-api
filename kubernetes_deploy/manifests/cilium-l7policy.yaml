@@ -80,11 +80,15 @@ spec:
         - matchPattern: "*"
   
   # Allow HTTPS outbound (for external API calls)
-  - toPorts:
+  - toEntities:
+    - "world"
+    toPorts:
     - ports:
       - port: "443"
         protocol: TCP
-    to: []
+    - ports:
+      - port: "80"
+        protocol: TCP
   
   # Allow database connections (adjust based on your setup)
   - toEndpoints:
