@@ -6,16 +6,17 @@ metadata:
   namespace: ai-data-capture
 
 # Common labels applied to all resources
-commonLabels:
-  app: ai-data-capture-api
-  environment: production
-  managed-by: kustomize
+labels:
+  - pairs:
+      app: ai-data-capture-api
+      environment: production
+      managed-by: kustomize
 
 # Resources to include
 resources:
   - namespace.yaml
   - secret.yaml
-#  - rbac.yaml
+  - rbac.yaml
   - deployment.yaml
   - service.yaml
   - gateway.yaml
