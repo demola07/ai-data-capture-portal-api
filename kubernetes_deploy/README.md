@@ -49,6 +49,32 @@ kubernetes_deploy/
 
 ## 🚀 Quick Start
 
+**📖 For complete documentation, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)**
+
+### Interactive Deployment (Recommended)
+```bash
+# Run the interactive deployment selector
+./scripts/deploy.sh
+
+# Choose your preferred deployment method:
+# 1) Helm-based (recommended for production)
+# 2) kubectl-based (simple)
+```
+
+### Direct Deployment
+
+**Helm-based (Production):**
+```bash
+cd scripts/helm/
+./deploy-with-helm.sh
+```
+
+**kubectl-based (Simple):**
+```bash
+cd scripts/kubectl/
+./deploy-with-tls.sh
+```
+
 ### 1. Setup AWS Application Load Balancer
 ```bash
 cd kubernetes_deploy/scripts
