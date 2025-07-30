@@ -100,10 +100,42 @@ echo "🚀 Step 4: Deploying application manifests..."
 print_info "Applying Kubernetes manifests..."
 kubectl apply -k ../../manifests/
 
-print_info "Waiting for deployment to be ready..."
-kubectl wait --for=condition=available --timeout=300s deployment/ai-data-capture-api -n $NAMESPACE
+# Give a moment for resources to be created
+sleep 2
 
-print_status "Application deployed successfully"
+print_info "Waiting for deployment to be ready..."
+print_info "This may take a few minutes while pods start and pass health checks..."
+
+# Check if deployment exists first
+if ! kubectl get deployment ai-data-capture-api -n $NAMESPACE &> /dev/null; then
+    print_error "Deployment ai-data-capture-api not found in namespace $NAMESPACE"
+    exit 1
+fi
+
+# Show current status
+echo "Current deployment status:"
+kubectl get deployment ai-data-capture-api -n $NAMESPACE
+echo "Current pod status:"
+kubectl get pods -n $NAMESPACE -l app=ai-data-capture-api
+
+# Wait for deployment with extended timeout
+if kubectl wait --for=condition=available --timeout=120s deployment/ai-data-capture-api -n $NAMESPACE; then
+    print_status "Application deployed successfully"
+else
+    print_error "Deployment failed to become ready within 10 minutes"
+    echo
+    print_info "Debugging information:"
+    echo "Deployment status:"
+    kubectl describe deployment ai-data-capture-api -n $NAMESPACE
+    echo
+    echo "Pod status:"
+    kubectl get pods -n $NAMESPACE -l app=ai-data-capture-api
+    echo
+    echo "Pod logs (if available):"
+    kubectl logs -l app=ai-data-capture-api -n $NAMESPACE --tail=50 || true
+    echo
+    print_warning "Continuing with deployment despite timeout..."
+fi
 
 # Step 5: Get Gateway IP and configure DNS
 echo

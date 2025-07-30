@@ -151,29 +151,44 @@ spec:
           secretName: ai-data-capture-secret
           defaultMode: 0400  # Read-only for owner only
           items:
-          - key: database-hostname
-            path: database-hostname
+          - key: database_hostname
+            path: database_hostname
             mode: 0400
-          - key: database-port
-            path: database-port
+          - key: database_port
+            path: database_port
             mode: 0400
-          - key: database-password
-            path: database-password
+          - key: database_password
+            path: database_password
             mode: 0400
-          - key: database-name
-            path: database-name
+          - key: database_name
+            path: database_name
             mode: 0400
-          - key: database-username
-            path: database-username
+          - key: database_username
+            path: database_username
             mode: 0400
-          - key: secret-key
-            path: secret-key
+          - key: secret_key
+            path: secret_key
             mode: 0400
           - key: algorithm
             path: algorithm
             mode: 0400
-          - key: access-token-expire-minutes
-            path: access-token-expire-minutes
+          - key: access_token_expire_minutes
+            path: access_token_expire_minutes
+            mode: 0400
+          - key: AWS_ACCESS_KEY
+            path: AWS_ACCESS_KEY
+            mode: 0400
+          - key: AWS_SECRET_KEY
+            path: AWS_SECRET_KEY
+            mode: 0400
+          - key: AWS_REGION
+            path: AWS_REGION
+            mode: 0400
+          - key: S3_BUCKET
+            path: S3_BUCKET
+            mode: 0400
+          - key: OPENAI_API_KEY
+            path: OPENAI_API_KEY
             mode: 0400
       # Temporary volumes
       - name: tmp
