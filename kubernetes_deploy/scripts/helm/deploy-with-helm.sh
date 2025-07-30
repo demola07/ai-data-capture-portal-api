@@ -122,7 +122,7 @@ kubectl get pods -n $NAMESPACE -l app=ai-data-capture-api
 if kubectl wait --for=condition=available --timeout=120s deployment/ai-data-capture-api -n $NAMESPACE; then
     print_status "Application deployed successfully"
 else
-    print_error "Deployment failed to become ready within 10 minutes"
+    print_error "Deployment failed to become ready within 2 minutes"
     echo
     print_info "Debugging information:"
     echo "Deployment status:"

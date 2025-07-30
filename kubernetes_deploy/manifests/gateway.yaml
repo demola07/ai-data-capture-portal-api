@@ -50,12 +50,7 @@ metadata:
     environment: production
 spec:
   controllerName: io.cilium/gateway-controller
-  description: "Cilium Gateway API implementation"
-  parametersRef:
-    group: cilium.io
-    kind: CiliumL7Policy
-    name: cilium-gateway-config
-    namespace: cilium-system
+  description: Cilium Gateway API implementation
 ---
 # TLS Certificate Secret (update with your actual certificate)
 apiVersion: v1
