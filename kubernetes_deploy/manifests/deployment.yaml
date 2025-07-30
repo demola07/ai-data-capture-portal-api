@@ -52,35 +52,74 @@ spec:
           name: http
           protocol: TCP
         
-        # Environment variables pointing to secret files
+        # Environment variables from secrets
         env:
-        # Point to mounted secret files
+        # Database configuration from secrets
         - name: database_hostname
-          value: "/etc/secrets/database_hostname"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: database_hostname
         - name: database_port
-          value: "/etc/secrets/database_port"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: database_port
         - name: database_password
-          value: "/etc/secrets/database_password"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: database_password
         - name: database_name
-          value: "/etc/secrets/database_name"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: database_name
         - name: database_username
-          value: "/etc/secrets/database_username"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: database_username
         - name: secret_key
-          value: "/etc/secrets/secret_key"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: secret_key
         - name: algorithm
-          value: "/etc/secrets/algorithm"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: algorithm
         - name: access_token_expire_minutes
-          value: "/etc/secrets/access_token_expire_minutes"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: access_token_expire_minutes
         - name: AWS_ACCESS_KEY
-          value: "/etc/secrets/AWS_ACCESS_KEY"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: AWS_ACCESS_KEY
         - name: AWS_SECRET_KEY
-          value: "/etc/secrets/AWS_SECRET_KEY"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: AWS_SECRET_KEY
         - name: AWS_REGION
-          value: "/etc/secrets/AWS_REGION"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: AWS_REGION
         - name: S3_BUCKET
-          value: "/etc/secrets/S3_BUCKET"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: S3_BUCKET
         - name: OPENAI_API_KEY
-          value: "/etc/secrets/OPENAI_API_KEY"
+          valueFrom:
+            secretKeyRef:
+              name: ai-data-capture-secret
+              key: OPENAI_API_KEY
         
         # Optional: Additional environment variables for app configuration
         - name: ENVIRONMENT
@@ -136,10 +175,6 @@ spec:
         
         # Volume mounts
         volumeMounts:
-        # Secret files mount
-        - name: secret-files
-          mountPath: /etc/secrets
-          readOnly: true
         # Temporary directories
         - name: tmp
           mountPath: /tmp
@@ -148,52 +183,6 @@ spec:
       
       # Volumes
       volumes:
-      # Secret files volume
-      - name: secret-files
-        secret:
-          secretName: ai-data-capture-secret
-          defaultMode: 0400  # Read-only for owner only
-          items:
-          - key: database_hostname
-            path: database_hostname
-            mode: 0400
-          - key: database_port
-            path: database_port
-            mode: 0400
-          - key: database_password
-            path: database_password
-            mode: 0400
-          - key: database_name
-            path: database_name
-            mode: 0400
-          - key: database_username
-            path: database_username
-            mode: 0400
-          - key: secret_key
-            path: secret_key
-            mode: 0400
-          - key: algorithm
-            path: algorithm
-            mode: 0400
-          - key: access_token_expire_minutes
-            path: access_token_expire_minutes
-            mode: 0400
-          - key: AWS_ACCESS_KEY
-            path: AWS_ACCESS_KEY
-            mode: 0400
-          - key: AWS_SECRET_KEY
-            path: AWS_SECRET_KEY
-            mode: 0400
-          - key: AWS_REGION
-            path: AWS_REGION
-            mode: 0400
-          - key: S3_BUCKET
-            path: S3_BUCKET
-            mode: 0400
-          - key: OPENAI_API_KEY
-            path: OPENAI_API_KEY
-            mode: 0400
-      # Temporary volumes
       - name: tmp
         emptyDir: {}
       - name: app-logs
