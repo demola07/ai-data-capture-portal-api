@@ -36,7 +36,7 @@ spec:
         fsGroup: 1001
       
       # Service account for RBAC
-      serviceAccountName: ai-data-capture-api-sa
+      # serviceAccountName: ai-data-capture-api-sa
       
       # Image pull secrets for private Docker Hub repository
       imagePullSecrets:
