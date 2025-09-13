@@ -29,11 +29,11 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       # Security context
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
+      # securityContext:
+      #   runAsNonRoot: true
+      #   runAsUser: 1001
+      #   runAsGroup: 1001
+      #   fsGroup: 1001
       
       # Service account for RBAC
       # serviceAccountName: ai-data-capture-api-sa
