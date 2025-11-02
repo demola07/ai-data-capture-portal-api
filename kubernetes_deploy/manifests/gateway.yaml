@@ -7,8 +7,8 @@ metadata:
     app: ai-data-capture-api
     environment: production
   annotations:
-    # Direct EC2 Public IP - Simple approach for public VPC
-    # No load balancer needed with public instances + IGW
+    # NodePort for self-managed cluster (will use manual AWS NLB in front)
+    # For EKS, use: io.cilium/service-type: "LoadBalancer"
     io.cilium/service-type: "NodePort"
 spec:
   gatewayClassName: cilium
@@ -51,20 +51,6 @@ metadata:
 spec:
   controllerName: io.cilium/gateway-controller
   description: Cilium Gateway API implementation
----
-# TLS Certificate Secret (update with your actual certificate)
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ai-data-capture-tls-cert
-  namespace: ai-data-capture
-  labels:
-    app: ai-data-capture-api
-    environment: production
-type: kubernetes.io/tls
-data:
-  # Replace with your actual base64-encoded certificate and key
-  # tls.crt: LS0tLS1CRUdJTi... (base64 encoded certificate)
-  # tls.key: LS0tLS1CRUdJTi... (base64 encoded private key)
-  tls.crt: ""  # Add your base64-encoded certificate here
-  tls.key: ""  # Add your base64-encoded private key here
+# Note: TLS certificate is automatically managed by cert-manager
+# See certificate.yaml for configuration
+# cert-manager will create the secret: apidatacapture-store-tls-secret

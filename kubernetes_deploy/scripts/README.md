@@ -1,24 +1,68 @@
-# Deployment Scripts Organization
+# Kubernetes Cluster Setup and Deployment Scripts
 
-Scripts are now organized by deployment method to avoid confusion.
+Complete automation scripts for setting up self-managed Kubernetes clusters and deploying applications.
 
 ## 📁 Directory Structure
 
 ```
 scripts/
-├── helm/                    # Helm-based deployment (RECOMMENDED)
-│   ├── deploy-with-helm.sh     # Complete Helm deployment
-│   └── install-with-helm.sh    # Infrastructure only (cert-manager, Gateway API)
-├── kubectl/                 # kubectl-based deployment (Simple)
-│   ├── deploy-with-tls.sh      # Complete kubectl deployment
-│   └── install-gateway-api.sh  # Gateway API CRDs only
-├── utilities/               # Helper scripts
-│   ├── encode-secrets.sh       # Secret encoding utility
-│   └── config-example.py       # Configuration example
-└── README.md               # This file
+├── setup-k8s-control-plane.sh  # 🆕 Control plane setup automation
+├── setup-k8s-worker-node.sh    # 🆕 Worker node setup automation
+├── validate-k8s-setup.sh       # 🆕 Pre-installation validation
+├── k8s-utilities.sh            # 🆕 Cluster management utilities
+├── helm/                       # Helm-based deployment (RECOMMENDED)
+│   ├── deploy-with-helm.sh        # Complete Helm deployment
+│   └── install-with-helm.sh       # Infrastructure only (cert-manager, Gateway API)
+├── kubectl/                    # kubectl-based deployment (Simple)
+│   ├── deploy-with-tls.sh         # Complete kubectl deployment
+│   └── install-gateway-api.sh     # Gateway API CRDs only
+├── utilities/                  # Helper scripts
+│   ├── encode-secrets.sh          # Secret encoding utility
+│   └── config-example.py          # Configuration example
+└── README.md                  # This file
 ```
 
-## 🚀 Deployment Methods
+## 🏗️ Kubernetes Cluster Setup (NEW)
+
+### **Step 1: Pre-Installation Validation**
+```bash
+# Validate your system before installation
+sudo ./validate-k8s-setup.sh
+```
+
+### **Step 2: Setup Control Plane Node**
+```bash
+# Setup the first master node
+sudo ./setup-k8s-control-plane.sh [pod-network-cidr] [apiserver-advertise-address]
+
+# Examples:
+sudo ./setup-k8s-control-plane.sh                    # Uses default 10.217.0.0/16
+sudo ./setup-k8s-control-plane.sh 10.244.0.0/16     # Custom pod network
+sudo ./setup-k8s-control-plane.sh 10.244.0.0/16 10.0.1.100  # With API server IP
+```
+
+### **Step 3: Setup Worker Nodes**
+```bash
+# On each worker node, use the join command from control plane setup
+sudo ./setup-k8s-worker-node.sh "kubeadm join 10.0.1.100:6443 --token abc123.xyz789 --discovery-token-ca-cert-hash sha256:abcd1234..."
+```
+
+### **Step 4: Cluster Management**
+```bash
+# Generate new join tokens
+./k8s-utilities.sh generate-join-token
+
+# Check cluster status
+./k8s-utilities.sh cluster-info
+
+# Troubleshoot issues
+./k8s-utilities.sh troubleshoot
+
+# Reset a node (if needed)
+sudo ./k8s-utilities.sh reset-node
+```
+
+## 🚀 Application Deployment Methods
 
 ### **Method 1: Helm-based (RECOMMENDED for Production)**
 

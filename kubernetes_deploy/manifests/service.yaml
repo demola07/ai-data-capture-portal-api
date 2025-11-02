@@ -22,7 +22,9 @@ spec:
     app: ai-data-capture-api
   sessionAffinity: None
 ---
-# Optional: NodePort service for direct access (useful for testing)
+# NodePort service for self-managed cluster with manual AWS NLB
+# The NLB will forward traffic to these NodePorts
+# SECURITY: Only accessible from NLB security group, NOT from internet
 apiVersion: v1
 kind: Service
 metadata:
@@ -37,7 +39,7 @@ spec:
   ports:
   - port: 80
     targetPort: 8000
-    nodePort: 30080  # Choose a port in the range 30000-32767
+    nodePort: 30080  # HTTP - NLB will forward port 80 to this
     protocol: TCP
     name: http
   selector:
