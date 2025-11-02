@@ -123,132 +123,346 @@ kubectl -n cert-manager get mutatingwebhookconfigurations
 
 ---
 
-### Step 4: Configure DNS
+### Step 4: Create AWS Load Balancer (Self-Managed Cluster)
 
-Point your domain to your Kubernetes cluster's public IP.
+**Note:** Since you're using a self-managed Kubernetes cluster (not EKS), you need to manually create an AWS Network Load Balancer.
 
-#### 4.1 Get Your Cluster's Public IP
+#### 4.1 Deploy Application First
 
 ```bash
-# Get the public IP of one of your nodes
-kubectl get nodes -o wide
+cd /Users/ademolaadesina/projects/ai-data-capture-portal-api/kubernetes_deploy/manifests
 
-# Or get the external IP directly
-EXTERNAL_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
-echo "Cluster Public IP: $EXTERNAL_IP"
+# Deploy all resources
+kubectl apply -k .
+
+# Wait for deployment
+kubectl -n ai-data-capture rollout status deployment/ai-data-capture-api
 ```
 
-#### 4.2 Configure DNS Records
+#### 4.2 Get Gateway NodePort
 
-Go to your DNS provider (e.g., Route53, Cloudflare, GoDaddy) and create:
+The Gateway will create a NodePort service. Get the port numbers:
 
-**A Records:**
+```bash
+# Get Gateway service
+kubectl -n ai-data-capture get svc
+
+# Look for: cilium-gateway-ai-data-capture-gateway
+# Note the NodePort numbers (e.g., 80:30123/TCP, 443:30456/TCP)
+
+# Save the ports
+HTTP_NODEPORT=$(kubectl -n ai-data-capture get svc cilium-gateway-ai-data-capture-gateway -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
+HTTPS_NODEPORT=$(kubectl -n ai-data-capture get svc cilium-gateway-ai-data-capture-gateway -o jsonpath='{.spec.ports[?(@.name=="https")].nodePort}')
+
+echo "HTTP NodePort: $HTTP_NODEPORT"
+echo "HTTPS NodePort: $HTTPS_NODEPORT"
 ```
-Type: A
-Name: @
-Value: <YOUR_CLUSTER_PUBLIC_IP>
+
+#### 4.3 Create AWS Network Load Balancer
+
+**Option A: Using AWS Console**
+
+1. **Create Target Groups:**
+   - Go to **EC2 → Target Groups → Create target group**
+   - **HTTP Target Group:**
+     - Name: `ai-data-capture-http-tg`
+     - Protocol: TCP
+     - Port: `<HTTP_NODEPORT>` (e.g., 30123)
+     - VPC: Your cluster VPC
+     - Health check: TCP on same port
+     - Register targets: Your worker node(s)
+   
+   - **HTTPS Target Group:**
+     - Name: `ai-data-capture-https-tg`
+     - Protocol: TCP
+     - Port: `<HTTPS_NODEPORT>` (e.g., 30456)
+     - VPC: Your cluster VPC
+     - Health check: TCP on same port
+     - Register targets: Your worker node(s)
+
+2. **Create Network Load Balancer:**
+   - Go to **EC2 → Load Balancers → Create Load Balancer**
+   - Choose **Network Load Balancer**
+   - Name: `ai-data-capture-nlb`
+   - Scheme: **Internet-facing**
+   - IP address type: IPv4
+   - Network mapping: Select your VPC and at least 2 public subnets
+   - **Listeners:**
+     - Listener 1: TCP port 80 → Forward to `ai-data-capture-http-tg`
+     - Listener 2: TCP port 443 → Forward to `ai-data-capture-https-tg`
+   - Create load balancer
+
+**Option B: Using AWS CLI**
+
+```bash
+# Set variables
+VPC_ID="vpc-xxxxx"
+SUBNET_1="subnet-xxxxx"
+SUBNET_2="subnet-yyyyy"
+WORKER_INSTANCE_ID="i-xxxxx"
+
+# Create target groups
+HTTP_TG_ARN=$(aws elbv2 create-target-group \
+  --name ai-data-capture-http-tg \
+  --protocol TCP \
+  --port $HTTP_NODEPORT \
+  --vpc-id $VPC_ID \
+  --health-check-protocol TCP \
+  --query 'TargetGroups[0].TargetGroupArn' \
+  --output text)
+
+HTTPS_TG_ARN=$(aws elbv2 create-target-group \
+  --name ai-data-capture-https-tg \
+  --protocol TCP \
+  --port $HTTPS_NODEPORT \
+  --vpc-id $VPC_ID \
+  --health-check-protocol TCP \
+  --query 'TargetGroups[0].TargetGroupArn' \
+  --output text)
+
+# Register worker node
+aws elbv2 register-targets \
+  --target-group-arn $HTTP_TG_ARN \
+  --targets Id=$WORKER_INSTANCE_ID,Port=$HTTP_NODEPORT
+
+aws elbv2 register-targets \
+  --target-group-arn $HTTPS_TG_ARN \
+  --targets Id=$WORKER_INSTANCE_ID,Port=$HTTPS_NODEPORT
+
+# Create NLB
+NLB_ARN=$(aws elbv2 create-load-balancer \
+  --name ai-data-capture-nlb \
+  --type network \
+  --scheme internet-facing \
+  --subnets $SUBNET_1 $SUBNET_2 \
+  --query 'LoadBalancers[0].LoadBalancerArn' \
+  --output text)
+
+# Get NLB DNS
+NLB_DNS=$(aws elbv2 describe-load-balancers \
+  --load-balancer-arns $NLB_ARN \
+  --query 'LoadBalancers[0].DNSName' \
+  --output text)
+
+echo "LoadBalancer DNS: $NLB_DNS"
+
+# Create listeners
+aws elbv2 create-listener \
+  --load-balancer-arn $NLB_ARN \
+  --protocol TCP \
+  --port 80 \
+  --default-actions Type=forward,TargetGroupArn=$HTTP_TG_ARN
+
+aws elbv2 create-listener \
+  --load-balancer-arn $NLB_ARN \
+  --protocol TCP \
+  --port 443 \
+  --default-actions Type=forward,TargetGroupArn=$HTTPS_TG_ARN
+```
+
+#### 4.4 Wait for LoadBalancer Provisioning
+
+Wait 2-5 minutes for AWS to provision the NLB. Check status:
+
+```bash
+# Check in AWS Console: EC2 → Load Balancers
+# Status should be: Active
+
+# Or via CLI
+aws elbv2 describe-load-balancers \
+  --names ai-data-capture-nlb \
+  --query 'LoadBalancers[0].State.Code' \
+  --output text
+```
+
+#### 4.5 Get LoadBalancer DNS Name
+
+```bash
+# From AWS Console: EC2 → Load Balancers → Your NLB → DNS name
+# Example: ai-data-capture-nlb-1234567890.elb.us-east-1.amazonaws.com
+
+# Or via CLI
+NLB_DNS=$(aws elbv2 describe-load-balancers \
+  --names ai-data-capture-nlb \
+  --query 'LoadBalancers[0].DNSName' \
+  --output text)
+
+echo "LoadBalancer DNS: $NLB_DNS"
+```
+
+---
+
+### Step 5: Configure DNS
+
+Point your domain to the AWS Load Balancer.
+
+#### 5.1 DNS Configuration Options
+
+You have **two options** depending on your DNS provider:
+
+**Option A: ALIAS Record (AWS Route53 Only) - RECOMMENDED**
+
+If using AWS Route53, use an ALIAS record (no additional cost, better performance):
+
+```bash
+# Get your hosted zone ID
+HOSTED_ZONE_ID=$(aws route53 list-hosted-zones \
+  --query "HostedZones[?Name=='apidatacapture.store.'].Id" \
+  --output text | cut -d'/' -f3)
+
+# Get NLB hosted zone ID (varies by region)
+NLB_HOSTED_ZONE=$(aws elbv2 describe-load-balancers \
+  --names ai-data-capture-nlb \
+  --query 'LoadBalancers[0].CanonicalHostedZoneId' \
+  --output text)
+
+# Create ALIAS record
+aws route53 change-resource-record-sets \
+  --hosted-zone-id $HOSTED_ZONE_ID \
+  --change-batch '{
+    "Changes": [{
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "apidatacapture.store",
+        "Type": "A",
+        "AliasTarget": {
+          "HostedZoneId": "'$NLB_HOSTED_ZONE'",
+          "DNSName": "'$NLB_DNS'",
+          "EvaluateTargetHealth": false
+        }
+      }
+    }]
+  }'
+
+# Create www subdomain
+aws route53 change-resource-record-sets \
+  --hosted-zone-id $HOSTED_ZONE_ID \
+  --change-batch '{
+    "Changes": [{
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "www.apidatacapture.store",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [{"Value": "apidatacapture.store"}]
+      }
+    }]
+  }'
+```
+
+**In Route53 Console:**
+1. Go to **Route53 → Hosted Zones → apidatacapture.store**
+2. **Create Record:**
+   - Record name: (leave empty for root domain)
+   - Record type: **A**
+   - Toggle **Alias**: ON
+   - Route traffic to: **Alias to Network Load Balancer**
+   - Region: Your NLB region
+   - Load Balancer: Select your NLB
+   - Click **Create records**
+3. **Create www subdomain:**
+   - Record name: `www`
+   - Record type: **CNAME**
+   - Value: `apidatacapture.store`
+   - TTL: 300
+   - Click **Create records**
+
+**Option B: CNAME Record (Other DNS Providers)**
+
+For Cloudflare, GoDaddy, Namecheap, etc.:
+
+**⚠️ Important:** Most DNS providers don't support CNAME for root domain. You have two sub-options:
+
+**Sub-option B1: CNAME Flattening (Cloudflare, Cloudflare-like providers)**
+
+If your provider supports CNAME flattening:
+
+```
+Record 1:
+Type: CNAME
+Name: @ (or apidatacapture.store)
+Value: <NLB_DNS>
 TTL: 300
+Proxy: Enabled (if Cloudflare)
 
-Type: A
+Record 2:
+Type: CNAME
 Name: www
-Value: <YOUR_CLUSTER_PUBLIC_IP>
+Value: apidatacapture.store
 TTL: 300
 ```
 
-**Example for apidatacapture.store:**
-```
-apidatacapture.store        A    <YOUR_IP>
-www.apidatacapture.store    A    <YOUR_IP>
+**Sub-option B2: A Records with Resolved IPs (Traditional providers)**
+
+If your provider doesn't support CNAME for root:
+
+```bash
+# First, resolve the NLB DNS to IP addresses
+dig +short $NLB_DNS
+
+# Example output:
+# 54.123.45.67
+# 54.123.45.68
 ```
 
-#### 4.3 Verify DNS Propagation
+Then create A records for each IP:
+
+```
+Record 1:
+Type: A
+Name: @ (or apidatacapture.store)
+Value: 54.123.45.67
+TTL: 300
+
+Record 2:
+Type: A
+Name: @ (or apidatacapture.store)
+Value: 54.123.45.68
+TTL: 300
+
+Record 3:
+Type: CNAME
+Name: www
+Value: apidatacapture.store
+TTL: 300
+```
+
+**⚠️ Warning:** NLB IPs can change. ALIAS (Route53) or CNAME flattening is preferred.
+
+#### 5.2 DNS Configuration Summary
+
+| DNS Provider | Root Domain (apidatacapture.store) | www Subdomain |
+|--------------|-----------------------------------|---------------|
+| **AWS Route53** | A (ALIAS) → NLB | CNAME → apidatacapture.store |
+| **Cloudflare** | CNAME → NLB (flattened) | CNAME → apidatacapture.store |
+| **GoDaddy/Namecheap** | A → Resolved IPs | CNAME → apidatacapture.store |
+
+#### 5.3 Verify DNS Propagation
 
 ```bash
 # Check DNS resolution
 dig apidatacapture.store +short
 dig www.apidatacapture.store +short
 
-# Or use nslookup
-nslookup apidatacapture.store
+# Should resolve to NLB IPs or NLB DNS (depending on record type)
+
+# Check from different DNS servers
+dig @8.8.8.8 apidatacapture.store +short
+dig @1.1.1.1 apidatacapture.store +short
+
+# Check global propagation
+# Visit: https://www.whatsmydns.net/#A/apidatacapture.store
 ```
 
-**Wait for DNS to propagate** (can take 5-60 minutes depending on TTL).
+**Wait for DNS to propagate** (5-60 minutes, usually 5-15 minutes with low TTL).
 
 ---
 
-### Step 5: Update Manifest Configuration
+### Step 6: Monitor Certificate Issuance
 
-Before deploying, ensure your manifests have the correct domain.
+Once DNS is propagated, cert-manager will automatically request a certificate from Let's Encrypt.
 
-#### 5.1 Verify Domain in HTTPRoute
-
-Check `manifests/httproute.yaml`:
-```yaml
-hostnames:
-- "apidatacapture.store"
-```
-
-#### 5.2 Verify Domain in Certificate
-
-Check `manifests/certificate.yaml`:
-```yaml
-dnsNames:
-- apidatacapture.store
-- www.apidatacapture.store
-```
-
-#### 5.3 Verify Email in ClusterIssuer
-
-Check `manifests/cert-manager-issuer.yaml`:
-```yaml
-email: demolasobaki@gmail.com  # Update if needed
-```
-
----
-
-### Step 6: Deploy Application with Gateway API
-
-Now deploy all resources using kustomize:
-
-```bash
-# Navigate to manifests directory
-cd /Users/ademolaadesina/projects/ai-data-capture-portal-api/kubernetes_deploy/manifests
-
-# Preview what will be deployed
-kubectl kustomize .
-
-# Deploy all resources
-kubectl apply -k .
-```
-
-**Verify deployment:**
-```bash
-# Check namespace
-kubectl get namespace ai-data-capture
-
-# Check all resources
-kubectl -n ai-data-capture get all
-
-# Check Gateway
-kubectl -n ai-data-capture get gateway
-
-# Check HTTPRoute
-kubectl -n ai-data-capture get httproute
-
-# Check Certificate
-kubectl -n ai-data-capture get certificate
-
-# Check ClusterIssuer
-kubectl get clusterissuer
-```
-
----
-
-### Step 7: Monitor Certificate Issuance
-
-cert-manager will automatically request a certificate from Let's Encrypt.
-
-#### 7.1 Check Certificate Status
+#### 6.1 Check Certificate Status
 
 ```bash
 # Watch certificate status
@@ -262,7 +476,7 @@ kubectl -n ai-data-capture describe certificate apidatacapture-store-tls
 1. `Ready: False` - Certificate requested
 2. `Ready: True` - Certificate issued
 
-#### 7.2 Check CertificateRequest
+#### 6.2 Check CertificateRequest
 
 ```bash
 # List certificate requests
@@ -272,7 +486,7 @@ kubectl -n ai-data-capture get certificaterequest
 kubectl -n ai-data-capture describe certificaterequest
 ```
 
-#### 7.3 Check cert-manager Logs
+#### 6.3 Check cert-manager Logs
 
 If certificate issuance fails:
 ```bash
@@ -283,7 +497,7 @@ kubectl -n cert-manager logs -l app=cert-manager --tail=100
 kubectl -n cert-manager logs -l app=webhook --tail=100
 ```
 
-#### 7.4 Verify TLS Secret Created
+#### 6.4 Verify TLS Secret Created
 
 Once certificate is issued:
 ```bash
@@ -296,37 +510,32 @@ kubectl -n ai-data-capture get secret apidatacapture-store-tls-secret -o yaml
 
 ---
 
-### Step 8: Configure Gateway Service
+### Step 7: Test and Verify
 
-The Gateway needs to be accessible from the internet.
+Once DNS is propagated and certificate is issued, test your setup.
 
-#### 8.1 Check Gateway Service
+#### 7.1 Test LoadBalancer Connectivity
 
 ```bash
-# Get Gateway service
-kubectl -n ai-data-capture get svc
+# Get NLB DNS
+NLB_DNS=$(aws elbv2 describe-load-balancers \
+  --names ai-data-capture-nlb \
+  --query 'LoadBalancers[0].DNSName' \
+  --output text)
 
-# Describe Gateway service
-kubectl -n ai-data-capture describe svc
+# Test HTTP (should work immediately)
+curl -I http://$NLB_DNS
+
+# Test HTTPS (after certificate is issued)
+curl -I https://$NLB_DNS
+
+# Test with Host header
+curl -I -H "Host: apidatacapture.store" http://$NLB_DNS
 ```
 
-#### 8.2 Expose Gateway via NodePort
+#### 7.2 Configure AWS Security Group
 
-Your `gateway.yaml` already has:
-```yaml
-annotations:
-  io.cilium/service-type: "NodePort"
-```
-
-Check the NodePort assignments:
-```bash
-# Get NodePort for Gateway
-kubectl -n ai-data-capture get svc -l gateway.networking.k8s.io/gateway-name=ai-data-capture-gateway
-```
-
-#### 8.3 Configure AWS Security Group
-
-Ensure your EC2 instances' security group allows:
+Ensure your worker node security group allows traffic from NLB:
 - **Port 80** (HTTP) - for Let's Encrypt validation and HTTP redirect
 - **Port 443** (HTTPS) - for secure traffic
 - **NodePort range** (30000-32767) - if using NodePort
