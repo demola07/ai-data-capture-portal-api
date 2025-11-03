@@ -39,8 +39,14 @@ spec:
   ports:
   - port: 80
     targetPort: 8000
-    nodePort: 30080  # HTTP - NLB will forward port 80 to this
+    nodePort: 32540  # HTTP - NLB will forward port 80 to this
     protocol: TCP
     name: http
+  - port: 443
+    targetPort: 8000
+    nodePort: 31608  # HTTPS - NLB will forward port 443 to this
+    protocol: TCP
+    name: https
   selector:
     app: ai-data-capture-api
+  externalTrafficPolicy: Cluster
