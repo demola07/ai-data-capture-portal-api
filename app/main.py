@@ -55,7 +55,7 @@ def health_check():
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "service": "ai-data-capture-portal",
-        "version": "1.0.0"
+        "version": "1.0.1"
     }
 
 
