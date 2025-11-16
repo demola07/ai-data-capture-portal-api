@@ -144,7 +144,9 @@ act push -j test
 | Secret | Purpose | Setup |
 |--------|---------|-------|
 | `GITOPS_ACCESS_TOKEN` | Update GitOps repo | ✅ Create manually |
-| `GITHUB_TOKEN` | Push to GHCR | ❌ Automatic |
+| `GITHUB_TOKEN` | Push to GHCR + Security scanning | ❌ Automatic |
+
+> **Note**: The workflow automatically requests `security-events: write` permission for uploading security scan results to GitHub Security tab.
 
 ### Environment Variables (Automatic)
 All these are **automatically provided** by GitHub Actions:
