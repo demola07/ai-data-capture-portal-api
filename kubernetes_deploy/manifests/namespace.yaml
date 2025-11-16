@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ai-data-capture
-  labels:
-    name: ai-data-capture
-    environment: production
