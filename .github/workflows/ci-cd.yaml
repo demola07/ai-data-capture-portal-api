@@ -153,8 +153,9 @@ jobs:
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
         run: |
-          # Use the first tag from the build output (e.g., main, latest, or version tag)
-          NEW_IMAGE=$(echo "$IMAGE_TAG" | head -n1)
+          # Use the main-<sha> tag (third tag) for better traceability
+          # Tags order: 1=main, 2=latest, 3=main-<short-sha>
+          NEW_IMAGE=$(echo "$IMAGE_TAG" | sed -n '3p')
           echo "Updating image to: ${NEW_IMAGE}"
           
           # Update deployment.yaml with new image
@@ -190,7 +191,7 @@ jobs:
         env:
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
         run: |
-          NEW_IMAGE=$(echo "$IMAGE_TAG" | head -n1)
+          NEW_IMAGE=$(echo "$IMAGE_TAG" | sed -n '3p')
           echo "### 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Image**: ${NEW_IMAGE}" >> $GITHUB_STEP_SUMMARY
