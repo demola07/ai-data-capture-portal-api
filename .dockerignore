@@ -1,13 +1,82 @@
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 *.egg
-*.env
+*.so
+.Python
 dist/
 build/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Environment files
+*.env
+.env*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
 .git/
 .gitignore
-alembic/versions/__pycache__/
+.gitattributes
+.github/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+.hypothesis/
+
+# Logs
 *.log
-.env
+logs/
+
+# Database
 *.sqlite3
+*.db
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Kubernetes
+k8s/
+manifests/
+*.yaml
+*.yml
+
+# Misc
+alembic/versions/__pycache__/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+*.bak
+*.tmp
