@@ -150,8 +150,11 @@ jobs:
       
       - name: Update image tag in manifests
         working-directory: gitops
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
         run: |
-          NEW_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          # Use the first tag from the build output (e.g., main, latest, or version tag)
+          NEW_IMAGE=$(echo "$IMAGE_TAG" | head -n1)
           echo "Updating image to: ${NEW_IMAGE}"
           
           # Update deployment.yaml with new image
@@ -184,10 +187,13 @@ jobs:
           git push origin main
       
       - name: Create deployment summary
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
         run: |
+          NEW_IMAGE=$(echo "$IMAGE_TAG" | head -n1)
           echo "### 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image**: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${NEW_IMAGE}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Actor**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "- **GitOps Repo**: ${{ env.GITOPS_REPO }}" >> $GITHUB_STEP_SUMMARY
