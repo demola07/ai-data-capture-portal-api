@@ -51,11 +51,11 @@ WORKDIR /app
 # Copy only necessary files (respect .dockerignore)
 COPY --chown=appuser:appuser . .
 
+# Create directory for logs and set ownership (before switching user)
+RUN mkdir -p /app/logs && chown -R appuser:appuser /app/logs
+
 # Switch to non-root user
 USER appuser
-
-# Create directory for logs if needed
-RUN mkdir -p /app/logs
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1 \
