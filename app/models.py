@@ -1,7 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Enum as SQLAlchemyEnum
-from sqlalchemy.sql.expression import text
-from sqlalchemy.sql.sqltypes import TIMESTAMP
-
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, TIMESTAMP, text, Text, Enum as SQLAlchemyEnum
+from sqlalchemy.orm import relationship
 from .database import Base
 from . import utils
 
@@ -84,3 +82,62 @@ class User(Base):
     created_at = Column(TIMESTAMP(timezone=True),
                         nullable=False, server_default=text('now()'))
     role = Column(SQLAlchemyEnum(utils.Role), nullable=False)
+
+
+class NotificationBatch(Base):
+    """Tracks batches of notifications sent"""
+    __tablename__ = "notification_batches"
+    
+    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    batch_id = Column(String, unique=True, nullable=False, index=True)
+    type = Column(String, nullable=False)  # email, sms, whatsapp
+    subject = Column(String, nullable=True)
+    total_recipients = Column(Integer, nullable=False)
+    successful = Column(Integer, server_default='0', nullable=False)
+    failed = Column(Integer, server_default='0', nullable=False)
+    pending = Column(Integer, server_default='0', nullable=False)
+    total_cost = Column(String, server_default='0', nullable=False)  # Store as string to avoid precision issues
+    provider = Column(String, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
+    completed_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+
+class NotificationLog(Base):
+    """Tracks individual notification sends"""
+    __tablename__ = "notification_logs"
+    
+    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    batch_id = Column(String, ForeignKey("notification_batches.batch_id"), nullable=False, index=True)
+    recipient_type = Column(String, nullable=False)  # email, phone
+    recipient = Column(String, nullable=False)  # actual email or phone number
+    subject = Column(String, nullable=True)
+    message = Column(String, nullable=False)
+    status = Column(String, nullable=False)  # sent, failed, pending, delivered, bounced
+    provider = Column(String, nullable=False)
+    provider_message_id = Column(String, nullable=True)
+    error_message = Column(String, nullable=True)
+    cost = Column(String, server_default='0', nullable=False)  # Store as string
+    sent_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    delivered_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
+
+
+class NotificationTemplate(Base):
+    __tablename__ = "notification_templates"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    type = Column(String, nullable=False)  # email, sms, whatsapp
+    subject = Column(String, nullable=True)  # For email only
+    body = Column(Text, nullable=False)
+    html_body = Column(Text, nullable=True)  # For email only
+    header_image = Column(String, nullable=True)  # Optional header image URL
+    description = Column(String, nullable=True)
+    variables = Column(String, nullable=True)  # JSON string of required variables
+    is_active = Column(Boolean, default=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    
+    creator = relationship("User")

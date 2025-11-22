@@ -43,7 +43,8 @@ def get_engine_with_retry():
         pool_size=10,         # Number of connections in the pool
         max_overflow=20,      # Additional connections beyond pool_size
         pool_timeout=30,      # Timeout for getting a connection from the pool
-        pool_recycle=1800,    # Recycle connections after a certain time (in seconds)
+        pool_recycle=300,     # Recycle connections after 5 minutes (reduced from 1800)
+        pool_pre_ping=True,   # Test connections before using them (CRITICAL for Neon)
 )
 
 engine = get_engine_with_retry()
