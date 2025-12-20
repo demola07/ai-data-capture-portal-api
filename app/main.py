@@ -5,7 +5,7 @@ import time
 import os
 from datetime import datetime
 
-from .routers import convert, user, auth, counsellor, counsellee, upload
+from .routers import convert, user, auth, counsellor, counsellee, upload, capture, notifications, templates
 from .database import engine
 from sqlalchemy import text
 # from . import models
@@ -36,6 +36,10 @@ api_router.include_router(convert.router)
 api_router.include_router(counsellor.router)
 api_router.include_router(counsellee.router)
 api_router.include_router(upload.router)
+api_router.include_router(capture.router)
+api_router.include_router(notifications.router)
+api_router.include_router(templates.router)
+
 
 app.include_router(api_router)
 

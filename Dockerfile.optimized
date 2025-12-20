@@ -1,0 +1,91 @@
+# syntax=docker/dockerfile:1.4
+
+# -------- Builder stage --------------------------------------------------
+FROM python:3.11-slim AS builder
+
+LABEL org.opencontainers.image.source="https://github.com/demola07/ai-data-capture-portal-api"
+LABEL org.opencontainers.image.description="AI Data Capture Portal API - Optimized Build"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Install build dependencies
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        git && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy only requirements first for better caching
+COPY requirements.txt ./
+
+# Install Python dependencies with optimizations
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir --prefix=/install \
+        --compile \
+        --no-warn-script-location \
+        -r requirements.txt
+
+# -------- Runtime stage --------------------------------------------------
+FROM python:3.11-slim AS runtime
+
+# Install runtime dependencies
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libpq5 \
+        curl \
+        ca-certificates \
+        tini && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean
+
+# Create non-root user
+RUN useradd -m -u 1001 -s /bin/bash appuser
+
+# Copy python dependencies from builder
+COPY --from=builder /install /usr/local
+
+WORKDIR /app
+
+# Copy application code
+COPY --chown=appuser:appuser . .
+
+# Create necessary directories
+RUN mkdir -p /app/logs && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Environment variables for optimization
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONHASHSEED=random \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || curl -f http://localhost:8000/ || exit 1
+
+# Use tini for proper signal handling
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Start with optimized uvicorn settings
+CMD ["uvicorn", "app.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "2", \
+     "--loop", "uvloop", \
+     "--http", "httptools", \
+     "--log-level", "info", \
+     "--access-log", \
+     "--no-server-header"]

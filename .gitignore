@@ -6,3 +6,5 @@ venv/
 .env.prod
 
 kubernetes_deploy/manifests/secret.yaml
+email*.html
+form.html
