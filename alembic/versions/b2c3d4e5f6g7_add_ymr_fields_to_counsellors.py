@@ -21,14 +21,8 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     # Rename will_attend_ymr_2024 to will_attend_ymr
     op.alter_column('counsellors', 'will_attend_ymr_2024', new_column_name='will_attend_ymr')
-    
-    # Add is_available_for_training column with default True
-    op.add_column('counsellors', sa.Column('is_available_for_training', sa.Boolean(), nullable=False, server_default='true'))
 
 
 def downgrade() -> None:
-    # Remove is_available_for_training column
-    op.drop_column('counsellors', 'is_available_for_training')
-    
     # Rename back to will_attend_ymr_2024
     op.alter_column('counsellors', 'will_attend_ymr', new_column_name='will_attend_ymr_2024')
