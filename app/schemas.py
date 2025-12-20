@@ -64,11 +64,38 @@ class UserResponse(BaseModel):
         # orm_mode = True
 
 
+class UnifiedUserResponse(BaseModel):
+    """Unified response for both users and counsellors"""
+    id: int
+    email: EmailStr
+    created_at: datetime
+    role: utils.Role
+    # User-specific fields (will be None for counsellors)
+    # Counsellor-specific fields (will be None for users)
+    name: Optional[str] = None
+    phone_number: Optional[str] = None
+    gender: Optional[str] = None
+    country: Optional[str] = None
+    state: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    address: Optional[str] = None
+    years_of_experience: Optional[int] = None
+    has_certification: Optional[bool] = None
+    denomination: Optional[str] = None
+    will_attend_ymr: Optional[bool] = None
+    is_available_for_training: Optional[bool] = None
+    profile_image_url: Optional[str] = None
+    certificates: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
+    class Config:
+        from_attributes = True
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str
-    user: Optional[UserResponse] = None
-    counsellor: Optional[CounsellorResponse] = None
+    user: UnifiedUserResponse
 
 
 class TokenData(BaseModel):
