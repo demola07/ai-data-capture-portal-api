@@ -84,12 +84,8 @@ jobs:
       - name: Get EC2 instance IPs
         id: ec2-ips
         run: |
-          INSTANCE_IPS=$(aws ec2 describe-instances \
-            --filters "Name=tag:Environment,Values=production" \
-                      "Name=tag:Application,Values=ai-data-capture-api" \
-                      "Name=instance-state-name,Values=running" \
-            --query 'Reservations[*].Instances[*].PrivateIpAddress' \
-            --output text)
+          # Use hardcoded IP for now (or set EC2_HOST in secrets)
+          INSTANCE_IPS="${{ secrets.EC2_HOST }}"
           echo "instance-ips=${INSTANCE_IPS}" >> $GITHUB_OUTPUT
           echo "Found instances: ${INSTANCE_IPS}"
 
