@@ -1,8 +1,9 @@
-from fastapi import Response, status, HTTPException, Depends, APIRouter, File, UploadFile
+from fastapi import Response, status, HTTPException, Depends, APIRouter, File, UploadFile, Form
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from sqlalchemy import or_
+from pydantic import EmailStr
 from .. import models, schemas, oauth2
 from ..database import get_db
 
@@ -96,13 +97,27 @@ def get_counsellor(id: int, db: Session = Depends(get_db), current_user: schemas
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.CounsellorResponseWrapper)
 async def create_counsellor(
-    counsellor: schemas.CounsellorCreate,
+    name: str = Form(...),
+    email: EmailStr = Form(...),
+    phone_number: Optional[str] = Form(None),
+    gender: Optional[str] = Form(None),
+    country: Optional[str] = Form(None),
+    state: Optional[str] = Form(None),
+    date_of_birth: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    years_of_experience: Optional[int] = Form(None),
+    has_certification: bool = Form(False),
+    denomination: Optional[str] = Form(None),
+    will_attend_ymr: bool = Form(True),
+    is_available_for_training: bool = Form(True),
+    password: Optional[str] = Form(None),
     profile_image: Optional[UploadFile] = File(None),
     certificates: Optional[List[UploadFile]] = File(None),
     db: Session = Depends(get_db)
 ):
     """
     Create a new counsellor with optional profile image and certificates.
+    All fields are sent as individual form fields.
     If password is provided, account can be used for login (requires activation).
     Default role is 'user', is_active defaults to False.
     """
@@ -110,19 +125,33 @@ async def create_counsellor(
     from app import utils
     import json
     
-    existing_counsellor = db.query(models.Counsellor).filter(models.Counsellor.email == counsellor.email).first()
+    existing_counsellor = db.query(models.Counsellor).filter(models.Counsellor.email == email).first()
     if existing_counsellor:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A counsellor with this email already exists."
         )
     try:
-        # Prepare counsellor data
-        counsellor_data = counsellor.model_dump(exclude={"id", "password"})
+        # Prepare counsellor data from form fields
+        counsellor_data = {
+            "name": name,
+            "email": email,
+            "phone_number": phone_number,
+            "gender": gender,
+            "country": country,
+            "state": state,
+            "date_of_birth": date_of_birth,
+            "address": address,
+            "years_of_experience": years_of_experience,
+            "has_certification": has_certification,
+            "denomination": denomination,
+            "will_attend_ymr": will_attend_ymr,
+            "is_available_for_training": is_available_for_training
+        }
         
         # Hash password if provided
-        if counsellor.password:
-            counsellor_data["password"] = utils.hash(counsellor.password)
+        if password:
+            counsellor_data["password"] = utils.hash(password)
         
         # Set default role if not provided
         if "role" not in counsellor_data or counsellor_data.get("role") is None:
@@ -173,23 +202,65 @@ async def create_counsellor(
         )
 
 @router.put("/{id}", response_model=schemas.CounsellorResponseWrapper)
-def update_counsellor(id: int, updated_counsellor_data: schemas.CounsellorUpdate, db: Session = Depends(get_db), current_user: schemas.UserCreate = Depends(oauth2.get_current_user)):
+def update_counsellor(
+    id: int,
+    name: Optional[str] = Form(None),
+    phone_number: Optional[str] = Form(None),
+    gender: Optional[str] = Form(None),
+    country: Optional[str] = Form(None),
+    state: Optional[str] = Form(None),
+    date_of_birth: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    years_of_experience: Optional[int] = Form(None),
+    has_certification: Optional[bool] = Form(None),
+    denomination: Optional[str] = Form(None),
+    will_attend_ymr: Optional[bool] = Form(None),
+    is_available_for_training: Optional[bool] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
+):
     if current_user.role.value != "super-admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to access this resource"
         )
-
     counsellor_query = db.query(models.Counsellor).filter(models.Counsellor.id == id)
-
     counsellor = counsellor_query.first()
-
     if counsellor == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"counsellor with id: {id} does not exist")
-
-    counsellor_query.update(updated_counsellor_data.model_dump(), synchronize_session=False)
-    db.commit()
+    
+    # Build update dict from provided fields
+    update_dict = {}
+    if name is not None:
+        update_dict["name"] = name
+    if phone_number is not None:
+        update_dict["phone_number"] = phone_number
+    if gender is not None:
+        update_dict["gender"] = gender
+    if country is not None:
+        update_dict["country"] = country
+    if state is not None:
+        update_dict["state"] = state
+    if date_of_birth is not None:
+        update_dict["date_of_birth"] = date_of_birth
+    if address is not None:
+        update_dict["address"] = address
+    if years_of_experience is not None:
+        update_dict["years_of_experience"] = years_of_experience
+    if has_certification is not None:
+        update_dict["has_certification"] = has_certification
+    if denomination is not None:
+        update_dict["denomination"] = denomination
+    if will_attend_ymr is not None:
+        update_dict["will_attend_ymr"] = will_attend_ymr
+    if is_available_for_training is not None:
+        update_dict["is_available_for_training"] = is_available_for_training
+    
+    if update_dict:
+        counsellor_query.update(update_dict, synchronize_session=False)
+        db.commit()
+    
     return { "status": "success", "data": counsellor_query.first() }
 
 
@@ -284,7 +355,18 @@ def get_my_profile(
 
 @router.put("/me", response_model=schemas.CounsellorResponseWrapper)
 async def update_my_profile(
-    updated_data: schemas.CounsellorUpdate,
+    name: Optional[str] = Form(None),
+    phone_number: Optional[str] = Form(None),
+    gender: Optional[str] = Form(None),
+    country: Optional[str] = Form(None),
+    state: Optional[str] = Form(None),
+    date_of_birth: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    years_of_experience: Optional[int] = Form(None),
+    has_certification: Optional[bool] = Form(None),
+    denomination: Optional[str] = Form(None),
+    will_attend_ymr: Optional[bool] = Form(None),
+    is_available_for_training: Optional[bool] = Form(None),
     profile_image: Optional[UploadFile] = File(None),
     certificates: Optional[List[UploadFile]] = File(None),
     db: Session = Depends(get_db),
@@ -312,8 +394,32 @@ async def update_my_profile(
         )
     
     try:
-        # Prepare update data
-        update_dict = updated_data.model_dump(exclude_unset=True)
+        # Build update dict from provided fields
+        update_dict = {}
+        if name is not None:
+            update_dict["name"] = name
+        if phone_number is not None:
+            update_dict["phone_number"] = phone_number
+        if gender is not None:
+            update_dict["gender"] = gender
+        if country is not None:
+            update_dict["country"] = country
+        if state is not None:
+            update_dict["state"] = state
+        if date_of_birth is not None:
+            update_dict["date_of_birth"] = date_of_birth
+        if address is not None:
+            update_dict["address"] = address
+        if years_of_experience is not None:
+            update_dict["years_of_experience"] = years_of_experience
+        if has_certification is not None:
+            update_dict["has_certification"] = has_certification
+        if denomination is not None:
+            update_dict["denomination"] = denomination
+        if will_attend_ymr is not None:
+            update_dict["will_attend_ymr"] = will_attend_ymr
+        if is_available_for_training is not None:
+            update_dict["is_available_for_training"] = is_available_for_training
         
         # Upload new profile image if provided
         if profile_image:
