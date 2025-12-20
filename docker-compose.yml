@@ -2,17 +2,14 @@ version: "3.9"
 
 services:
   api:
-    # build:
-    #    context: .
-    #    dockerfile: Dockerfile
-    image: demola07/ai-data-capture:v1
+    image: ghcr.io/demola07/ai-data-capture-portal-api:latest
+    container_name: ai-data-capture-api-app
     env_file:
       - .env
     ports:
-      - "2000:8000"        # host:container
+      - "8000:8000"
     restart: unless-stopped
     
-    # Health check configuration
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -20,19 +17,24 @@ services:
       retries: 3
       start_period: 40s
     
-    # Resource limits (optional but recommended)
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
+          cpus: '2.0'
+          memory: 1G
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: '0.5'
+          memory: 512M
     
     networks:
-      - backend
+      - ai-data-capture-network
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
-  backend:
+  ai-data-capture-network:
     driver: bridge

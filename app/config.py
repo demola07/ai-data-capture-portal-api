@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str = ""
     AI_MODEL_PROVIDER: str = "openai" # gemini, openai, anthropic
     
+    @property
+    def BUCKET_NAME(self) -> str:
+        """Return S3_BUCKET as BUCKET_NAME for compatibility"""
+        return self.S3_BUCKET
+    
     # Email Provider Settings
     EMAIL_PROVIDER: str = "aws_ses"  # aws_ses or termii
     TERMII_API_KEY: str = ""

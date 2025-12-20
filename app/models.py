@@ -59,6 +59,7 @@ class Counsellor(Base):
     id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
     name = Column(String, nullable=False)  # Full Name
     email = Column(String, nullable=False, unique=True)  # Email
+    password = Column(String, nullable=True)  # Hashed password for authentication
     phone_number = Column(String, nullable=True) # Phone Number
     gender = Column(String, nullable=True)     # Gender Enum
     country = Column(String, nullable=True)
@@ -68,8 +69,12 @@ class Counsellor(Base):
     years_of_experience = Column(Integer, nullable=True) # Years of Experience
     has_certification = Column(Boolean, nullable=False, default=False)  # Professional Certification
     denomination = Column(String(100), nullable=True)  # Denomination
-    will_attend_ymr_2024 = Column(Boolean, nullable=False, default=True)  # Attendance at Event
+    will_attend_ymr = Column(Boolean, nullable=False, default=True)  # Attendance at Event
     is_available_for_training = Column(Boolean, nullable=False, default=True)  # Availability
+    profile_image_url = Column(String, nullable=True)  # S3 URL for profile image
+    certificates = Column(String, nullable=True)  # JSON array of certificate S3 URLs
+    is_active = Column(Boolean, nullable=False, server_default='FALSE')  # Account activation status
+    role = Column(SQLAlchemyEnum(utils.Role), nullable=False, server_default='user')  # Access level (user, admin, super-admin)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"))  # Timestamp
 
 

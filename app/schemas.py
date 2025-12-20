@@ -67,7 +67,8 @@ class UserResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
-    user: UserResponse
+    user: Optional[UserResponse] = None
+    counsellor: Optional[CounsellorResponse] = None
 
 
 class TokenData(BaseModel):
@@ -75,40 +76,64 @@ class TokenData(BaseModel):
     role: utils.Role
 
 
+# Counsellor Schemas
 class CounsellorBase(BaseModel):
     name: str
-    email: str
-    phone_number: str
-    gender: str
-    country: str
-    state: str
-    date_of_birth: str
-    address: str
-    years_of_experience: int
-    has_certification : bool = False
-    denomination: str
-    will_attend_ymr_2024 : bool = True
-    is_available_for_training : bool = True
-
+    email: EmailStr
+    phone_number: Optional[str] = None
+    gender: Optional[str] = None
+    country: Optional[str] = None
+    state: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    address: Optional[str] = None
+    years_of_experience: Optional[int] = None
+    has_certification: bool = False
+    denomination: Optional[str] = None
+    will_attend_ymr: bool = True
+    is_available_for_training: bool = True
 
 class CounsellorCreate(CounsellorBase):
-    pass
+    password: Optional[str] = None  # Optional for backward compatibility
 
-class CounsellorUpdate(CounsellorBase):
-    pass
+class CounsellorUpdate(BaseModel):
+    name: Optional[str] = None
+    phone_number: Optional[str] = None
+    gender: Optional[str] = None
+    country: Optional[str] = None
+    state: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    address: Optional[str] = None
+    years_of_experience: Optional[int] = None
+    has_certification: Optional[bool] = None
+    denomination: Optional[str] = None
+    will_attend_ymr: Optional[bool] = None
+    is_available_for_training: Optional[bool] = None
 
 class CounsellorResponse(CounsellorBase):
     id: int
+    profile_image_url: Optional[str] = None
+    certificates: Optional[List[str]] = None
+    is_active: bool = False
+    role: utils.Role
     created_at: datetime
 
     class Config:
         orm_mode = True
+
+class CounsellorProfileResponse(CounsellorResponse):
+    """Complete profile response with all details"""
+    pass
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 class CounsellorResponseWrapper(BaseModel):
     status: Optional[str] = None
     message: Optional[str] = None
     data: Union[CounsellorResponse, List[CounsellorResponse]]
     total: Optional[int] = 0
+
 
 class BulkDelete(BaseModel):
     ids: List[int]

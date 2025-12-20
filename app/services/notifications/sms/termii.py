@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class TermiiSMSProvider(SMSProvider):
     """Termii SMS provider implementation"""
     
-    BASE_URL = "https://api.ng.termii.com/api/sms/send"
+    BASE_URL = "https://v3.api.termii.com"
     
     def __init__(self, api_key: str, sender_id: str):
         self.api_key = api_key
