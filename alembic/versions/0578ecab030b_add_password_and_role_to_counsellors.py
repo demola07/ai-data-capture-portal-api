@@ -19,11 +19,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Create enum type if it doesn't exist
+    role_enum = sa.Enum('user', 'admin', 'super-admin', name='role')
+    role_enum.create(op.get_bind(), checkfirst=True)
+    
     # Add password column (nullable for existing records)
     op.add_column('counsellors', sa.Column('password', sa.String(), nullable=True))
     
     # Add role column with default value 'user'
-    op.add_column('counsellors', sa.Column('role', sa.Enum('user', 'admin', 'super-admin', name='role'), nullable=False, server_default='user'))
+    op.add_column('counsellors', sa.Column('role', role_enum, nullable=False, server_default='user'))
 
 
 def downgrade() -> None:
