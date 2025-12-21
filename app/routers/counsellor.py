@@ -153,9 +153,9 @@ async def create_counsellor(
         if password:
             counsellor_data["password"] = utils.hash(password)
         
-        # Set default role if not provided
+        # Set default role if not provided (use string value, not enum)
         if "role" not in counsellor_data or counsellor_data.get("role") is None:
-            counsellor_data["role"] = utils.Role.USER
+            counsellor_data["role"] = "user"
         
         # Upload profile image if provided
         if profile_image:
