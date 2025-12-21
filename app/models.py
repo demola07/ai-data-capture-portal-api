@@ -74,7 +74,7 @@ class Counsellor(Base):
     profile_image_url = Column(String, nullable=True)  # S3 URL for profile image
     certificates = Column(String, nullable=True)  # JSON array of certificate S3 URLs
     is_active = Column(Boolean, nullable=False, server_default='FALSE')  # Account activation status
-    role = Column(SQLAlchemyEnum(utils.Role), nullable=False, server_default='user')  # Access level (user, admin, super-admin)
+    role = Column(SQLAlchemyEnum(utils.Role, values_callable=lambda x: [e.value for e in x]), nullable=False, server_default='user')  # Access level (user, admin, super-admin)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"))  # Timestamp
 
 
@@ -86,7 +86,7 @@ class User(Base):
     password = Column(String, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True),
                         nullable=False, server_default=text('now()'))
-    role = Column(SQLAlchemyEnum(utils.Role), nullable=False)
+    role = Column(SQLAlchemyEnum(utils.Role, values_callable=lambda x: [e.value for e in x]), nullable=False)
 
 
 class NotificationBatch(Base):
