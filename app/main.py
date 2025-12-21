@@ -13,16 +13,16 @@ from sqlalchemy import text
 # models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
-# origins = ["*"]
-origins = [
-    "https://ymr-counselling.vercel.app/",
-    "https://www.ymrcounselling.com",
-    "https://ymrcounselling.com",
-    "http://localhost:8080",
-    "http://localhost:8080/"
-    "https://*.lovableproject.com"
-    "https://*.lovable.app"
-]
+origins = ["*"]
+# origins = [
+#     "https://ymr-counselling.vercel.app/",
+#     "https://www.ymrcounselling.com",
+#     "https://ymrcounselling.com",
+#     "http://localhost:8080",
+#     "http://localhost:8080/"
+#     "https://*.lovableproject.com"
+#     "https://*.lovable.app"
+# ]
 
 app.add_middleware(
     CORSMiddleware,
