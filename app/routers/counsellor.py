@@ -216,19 +216,33 @@ def update_counsellor(
     denomination: Optional[str] = Form(None),
     will_attend_ymr: Optional[bool] = Form(None),
     is_available_for_training: Optional[bool] = Form(None),
+    is_active: Optional[bool] = Form(None),
+    role: Optional[str] = Form(None),
+    password: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
 ):
-    if current_user.role.value != "super-admin":
+    """
+    Update counsellor (Admin/Super-admin only).
+    Can update profile fields, activation status, role, and password.
+    """
+    from app import utils
+    
+    # Check authorization (admin or super-admin)
+    if current_user.role.value not in ["admin", "super-admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to access this resource"
         )
+    
     counsellor_query = db.query(models.Counsellor).filter(models.Counsellor.id == id)
     counsellor = counsellor_query.first()
+    
     if counsellor == None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"counsellor with id: {id} does not exist")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"counsellor with id: {id} does not exist"
+        )
     
     # Build update dict from provided fields
     update_dict = {}
@@ -257,11 +271,36 @@ def update_counsellor(
     if is_available_for_training is not None:
         update_dict["is_available_for_training"] = is_available_for_training
     
+    # Admin-only fields
+    if is_active is not None:
+        update_dict["is_active"] = is_active
+    
+    if role is not None:
+        # Only super-admin can change roles
+        if current_user.role.value != "super-admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only super-admins can change counsellor roles"
+            )
+        # Validate role
+        valid_roles = ["user", "admin", "super-admin"]
+        if role not in valid_roles:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}"
+            )
+        update_dict["role"] = role
+    
+    if password is not None:
+        # Hash the new password
+        update_dict["password"] = utils.hash(password)
+    
     if update_dict:
         counsellor_query.update(update_dict, synchronize_session=False)
         db.commit()
+        db.refresh(counsellor)
     
-    return { "status": "success", "data": counsellor_query.first() }
+    return { "status": "success", "data": counsellor }
 
 
 @router.delete("/bulk-delete", status_code=status.HTTP_200_OK)
@@ -507,136 +546,11 @@ def change_password(
 # ADMIN ENDPOINTS - COUNSELLOR ACTIVATION
 # ============================================================================
 
-@router.put("/{id}/activate", response_model=schemas.CounsellorResponseWrapper)
-def activate_counsellor(
-    id: int,
-    db: Session = Depends(get_db),
-    current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
-):
-    """Activate a counsellor account (super-admin only)"""
-    import json
-    
-    if current_user.role.value != "super-admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only super-admin can activate counsellors"
-        )
-    
-    counsellor_query = db.query(models.Counsellor).filter(models.Counsellor.id == id)
-    counsellor = counsellor_query.first()
-    
-    if not counsellor:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Counsellor with id: {id} not found"
-        )
-    
-    counsellor_query.update({"is_active": True}, synchronize_session=False)
-    db.commit()
-    db.refresh(counsellor)
-    
-    # Parse certificates for response
-    response_data = schemas.CounsellorResponse.from_orm(counsellor)
-    if counsellor.certificates:
-        response_data.certificates = json.loads(counsellor.certificates)
-    
-    return {
-        "status": "success",
-        "message": "Counsellor activated successfully",
-        "data": response_data
-    }
-
-
-@router.put("/{id}/deactivate", response_model=schemas.CounsellorResponseWrapper)
-def deactivate_counsellor(
-    id: int,
-    db: Session = Depends(get_db),
-    current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
-):
-    """Deactivate a counsellor account (super-admin only)"""
-    import json
-    
-    if current_user.role.value != "super-admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only super-admin can deactivate counsellors"
-        )
-    
-    counsellor_query = db.query(models.Counsellor).filter(models.Counsellor.id == id)
-    counsellor = counsellor_query.first()
-    
-    if not counsellor:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Counsellor with id: {id} not found"
-        )
-    
-    counsellor_query.update({"is_active": False}, synchronize_session=False)
-    db.commit()
-    db.refresh(counsellor)
-    
-    # Parse certificates for response
-    response_data = schemas.CounsellorResponse.from_orm(counsellor)
-    if counsellor.certificates:
-        response_data.certificates = json.loads(counsellor.certificates)
-    
-    return {
-        "status": "success",
-        "message": "Counsellor deactivated successfully",
-        "data": response_data
-    }
-
-
-@router.put("/{id}/role", response_model=schemas.CounsellorResponseWrapper)
-def update_counsellor_role(
-    id: int,
-    role_data: dict,
-    db: Session = Depends(get_db),
-    current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
-):
-    """Update a counsellor's role (super-admin only)"""
-    import json
-    from .. import utils
-    
-    if current_user.role.value != "super-admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only super-admin can update counsellor roles"
-        )
-    
-    # Validate role
-    try:
-        new_role = utils.Role(role_data.get("role"))
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid role. Must be one of: user, admin, super-admin"
-        )
-    
-    counsellor_query = db.query(models.Counsellor).filter(models.Counsellor.id == id)
-    counsellor = counsellor_query.first()
-    
-    if not counsellor:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Counsellor with id: {id} not found"
-        )
-    
-    counsellor_query.update({"role": new_role}, synchronize_session=False)
-    db.commit()
-    db.refresh(counsellor)
-    
-    # Parse certificates for response
-    response_data = schemas.CounsellorResponse.from_orm(counsellor)
-    if counsellor.certificates:
-        response_data.certificates = json.loads(counsellor.certificates)
-    
-    return {
-        "status": "success",
-        "message": f"Counsellor role updated to {new_role.value}",
-        "data": response_data
-    }
-
+# Removed redundant endpoints - now handled by PUT /{id}
+# - activate_counsellor: use PUT /{id} with is_active=true
+# - deactivate_counsellor: use PUT /{id} with is_active=false
+# - update_counsellor_role: use PUT /{id} with role=<role>
+# - admin_set_counsellor_password: use PUT /{id} with password=<password>
 
 @router.put("/{id}/password", status_code=status.HTTP_200_OK)
 def admin_set_counsellor_password(
@@ -645,13 +559,16 @@ def admin_set_counsellor_password(
     db: Session = Depends(get_db),
     current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
 ):
-    """Set or reset a counsellor's password (super-admin only)"""
+    """
+    DEPRECATED: Use PUT /{id} with password field instead.
+    Set or reset a counsellor's password (admin only)
+    """
     from .. import utils
     
-    if current_user.role.value != "super-admin":
+    if current_user.role.value not in ["admin", "super-admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only super-admin can set counsellor passwords"
+            detail="Only admins can set counsellor passwords"
         )
     
     if not password_data.get("password"):
