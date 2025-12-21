@@ -317,36 +317,61 @@ def delete_counsellor(id: int, db: Session = Depends(get_db), current_user: sche
 # COUNSELLOR SELF-SERVICE ENDPOINTS
 # ============================================================================
 
-@router.get("/me", response_model=schemas.CounsellorProfileResponse)
+@router.get("/me", response_model=schemas.UnifiedUserResponse)
 def get_my_profile(
     db: Session = Depends(get_db),
     current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
 ):
-    """Get the complete profile of the logged-in counsellor"""
+    """Get the complete profile of the logged-in user (User or Counsellor)"""
     import json
     
-    if current_user.role.value != "counsellor":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only counsellors can access this endpoint"
-        )
-    
+    # Check if user is a counsellor first
     counsellor = db.query(models.Counsellor).filter(
         models.Counsellor.email == current_user.email
     ).first()
     
-    if not counsellor:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Counsellor profile not found"
+    if counsellor:
+        # Parse certificates JSON for counsellor
+        response_data = schemas.UnifiedUserResponse(
+            id=counsellor.id,
+            email=counsellor.email,
+            role=counsellor.role,
+            created_at=counsellor.created_at,
+            name=counsellor.name,
+            phone_number=counsellor.phone_number,
+            gender=counsellor.gender,
+            country=counsellor.country,
+            state=counsellor.state,
+            date_of_birth=counsellor.date_of_birth,
+            address=counsellor.address,
+            years_of_experience=counsellor.years_of_experience,
+            has_certification=counsellor.has_certification,
+            denomination=counsellor.denomination,
+            will_attend_ymr=counsellor.will_attend_ymr,
+            is_available_for_training=counsellor.is_available_for_training,
+            profile_image_url=counsellor.profile_image_url,
+            certificates=json.loads(counsellor.certificates) if counsellor.certificates else None,
+            is_active=counsellor.is_active
+        )
+        return response_data
+    
+    # Check if regular user
+    user = db.query(models.User).filter(
+        models.User.email == current_user.email
+    ).first()
+    
+    if user:
+        return schemas.UnifiedUserResponse(
+            id=user.id,
+            email=user.email,
+            role=user.role,
+            created_at=user.created_at
         )
     
-    # Parse certificates JSON
-    response_data = schemas.CounsellorProfileResponse.from_orm(counsellor)
-    if counsellor.certificates:
-        response_data.certificates = json.loads(counsellor.certificates)
-    
-    return response_data
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="User profile not found"
+    )
 
 
 @router.put("/me", response_model=schemas.CounsellorResponseWrapper)
@@ -368,11 +393,11 @@ async def update_my_profile(
     db: Session = Depends(get_db),
     current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
 ):
-    """Update the logged-in counsellor's profile"""
+    """Update the logged-in user's profile (Counsellor only - Users have limited profile fields)"""
     from app.services.s3_upload import s3_service
     import json
     
-    # Token validation ensures user is authenticated
+    # Check if user is a counsellor (only counsellors have extended profiles to update)
     counsellor_query = db.query(models.Counsellor).filter(
         models.Counsellor.email == current_user.email
     )
@@ -381,7 +406,7 @@ async def update_my_profile(
     if not counsellor:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Counsellor profile not found"
+            detail="Only counsellors can update profile via this endpoint. Regular users have limited profile fields."
         )
     
     try:
