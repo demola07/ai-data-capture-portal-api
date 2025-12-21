@@ -135,6 +135,12 @@ class CounsellorUpdate(BaseModel):
     will_attend_ymr: Optional[bool] = None
     is_available_for_training: Optional[bool] = None
 
+class AdminCounsellorUpdate(CounsellorUpdate):
+    """Admin update schema with additional fields for activation, role, and password"""
+    is_active: Optional[bool] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+
 class CounsellorResponse(CounsellorBase):
     id: int
     profile_image_url: Optional[str] = None

@@ -204,27 +204,13 @@ async def create_counsellor(
 @router.put("/{id}", response_model=schemas.CounsellorResponseWrapper)
 def update_counsellor(
     id: int,
-    name: Optional[str] = Form(None),
-    phone_number: Optional[str] = Form(None),
-    gender: Optional[str] = Form(None),
-    country: Optional[str] = Form(None),
-    state: Optional[str] = Form(None),
-    date_of_birth: Optional[str] = Form(None),
-    address: Optional[str] = Form(None),
-    years_of_experience: Optional[int] = Form(None),
-    has_certification: Optional[bool] = Form(None),
-    denomination: Optional[str] = Form(None),
-    will_attend_ymr: Optional[bool] = Form(None),
-    is_available_for_training: Optional[bool] = Form(None),
-    is_active: Optional[bool] = Form(None),
-    role: Optional[str] = Form(None),
-    password: Optional[str] = Form(None),
+    update_data: schemas.AdminCounsellorUpdate,
     db: Session = Depends(get_db),
     current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
 ):
     """
     Update counsellor (Admin/Super-admin only).
-    Can update profile fields, activation status, role, and password.
+    Accepts JSON body with counsellor fields including is_active, role, and password.
     """
     from app import utils
     
@@ -244,39 +230,11 @@ def update_counsellor(
             detail=f"counsellor with id: {id} does not exist"
         )
     
-    # Build update dict from provided fields
-    update_dict = {}
-    if name is not None:
-        update_dict["name"] = name
-    if phone_number is not None:
-        update_dict["phone_number"] = phone_number
-    if gender is not None:
-        update_dict["gender"] = gender
-    if country is not None:
-        update_dict["country"] = country
-    if state is not None:
-        update_dict["state"] = state
-    if date_of_birth is not None:
-        update_dict["date_of_birth"] = date_of_birth
-    if address is not None:
-        update_dict["address"] = address
-    if years_of_experience is not None:
-        update_dict["years_of_experience"] = years_of_experience
-    if has_certification is not None:
-        update_dict["has_certification"] = has_certification
-    if denomination is not None:
-        update_dict["denomination"] = denomination
-    if will_attend_ymr is not None:
-        update_dict["will_attend_ymr"] = will_attend_ymr
-    if is_available_for_training is not None:
-        update_dict["is_available_for_training"] = is_available_for_training
+    # Build update dict from provided fields (exclude None values)
+    update_dict = update_data.model_dump(exclude_unset=True, exclude_none=True)
     
-    # Admin-only fields
-    if is_active is not None:
-        update_dict["is_active"] = is_active
-    
-    if role is not None:
-        # Only super-admin can change roles
+    # Handle role update (super-admin only)
+    if "role" in update_dict:
         if current_user.role.value != "super-admin":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -284,16 +242,15 @@ def update_counsellor(
             )
         # Validate role
         valid_roles = ["user", "admin", "super-admin"]
-        if role not in valid_roles:
+        if update_dict["role"] not in valid_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}"
             )
-        update_dict["role"] = role
     
-    if password is not None:
-        # Hash the new password
-        update_dict["password"] = utils.hash(password)
+    # Handle password update (hash it)
+    if "password" in update_dict:
+        update_dict["password"] = utils.hash(update_dict["password"])
     
     if update_dict:
         counsellor_query.update(update_dict, synchronize_session=False)
