@@ -11,7 +11,7 @@ from sqlalchemy import text
 # from . import models
 
 # models.Base.metadata.create_all(bind=engine)
-app = FastAPI()
+app = FastAPI(redirect_slashes=False)
 
 origins = ["*"]
 # origins = [
