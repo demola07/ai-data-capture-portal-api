@@ -42,13 +42,26 @@ def create_access_token(data: dict):
 
 def verify_access_token(token: str, credentials_exception):
     try:
-
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        id: str = payload.get("user_id")
-        role: str = payload.get("user_role")
-        if id is None or role is None:
+        
+        # Check for user_id (regular user) or counsellor_email (counsellor)
+        user_id = payload.get("user_id")
+        counsellor_id = payload.get("counsellor_id")
+        counsellor_email = payload.get("counsellor_email")
+        role = payload.get("user_role")
+        
+        if role is None:
             raise credentials_exception
-        token_data = schemas.TokenData(id=str(id), role=role)
+        
+        # For users, we need user_id
+        if user_id:
+            token_data = schemas.TokenData(id=str(user_id), role=role)
+        # For counsellors, we use email as identifier
+        elif counsellor_email:
+            token_data = schemas.TokenData(id=None, role=role, email=counsellor_email)
+        else:
+            raise credentials_exception
+            
     except JWTError:
         raise credentials_exception
 
@@ -59,16 +72,25 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     credentials_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                           detail=f"Could not validate credentials", headers={"WWW-Authenticate": "Bearer"})
 
-    token = verify_access_token(token, credentials_exception)
+    token_data = verify_access_token(token, credentials_exception)
 
-    user = db.query(models.User).filter(models.User.id == token.id).first()
-
-    if user is None:
+    # Check if it's a counsellor token (has email)
+    if token_data.email:
+        counsellor = db.query(models.Counsellor).filter(models.Counsellor.email == token_data.email).first()
+        if counsellor is None:
             raise credentials_exception
+        counsellor.role = utils.Role(counsellor.role)
+        return counsellor
     
-    user.role = utils.Role(user.role)
-
-    return user
+    # Otherwise it's a regular user token (has id)
+    if token_data.id:
+        user = db.query(models.User).filter(models.User.id == token_data.id).first()
+        if user is None:
+            raise credentials_exception
+        user.role = utils.Role(user.role)
+        return user
+    
+    raise credentials_exception
 
 # New function: Allow optional authentication
 def get_current_user_if_available(
