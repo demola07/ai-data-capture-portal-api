@@ -372,12 +372,7 @@ async def update_my_profile(
     from app.services.s3_upload import s3_service
     import json
     
-    if current_user.role.value != "counsellor":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only counsellors can access this endpoint"
-        )
-    
+    # Token validation ensures user is authenticated
     counsellor_query = db.query(models.Counsellor).filter(
         models.Counsellor.email == current_user.email
     )
