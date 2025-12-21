@@ -145,7 +145,7 @@ def create_converts(
     current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
 ):
     # Check if the current user is authorized
-    if current_user.role not in ("admin", "super-admin"):
+    if current_user.role not in ("user", "admin", "super-admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to access this resource"
