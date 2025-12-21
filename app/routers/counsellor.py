@@ -191,7 +191,7 @@ async def create_counsellor(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while processing the request."
+            detail=f"Database error: {str(e)}"
         )
     
     except Exception as e:
