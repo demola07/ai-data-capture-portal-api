@@ -62,6 +62,233 @@ def get_counsellors(db: Session = Depends(get_db), current_user: schemas.UserCre
             detail=f"An unexpected error occurred: {str(e)}"
         )
 
+# ============================================================================
+# SELF-SERVICE ENDPOINTS (/me) - Must be before /{id} routes to prevent conflicts
+# ============================================================================
+
+@router.get("/me", response_model=schemas.UnifiedUserResponse)
+def get_my_profile(
+    db: Session = Depends(get_db),
+    current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
+):
+    """Get the complete profile of the logged-in user (User or Counsellor)"""
+    import json
+    
+    # Check if user is a counsellor first
+    counsellor = db.query(models.Counsellor).filter(
+        models.Counsellor.email == current_user.email
+    ).first()
+    
+    if counsellor:
+        # Parse certificates JSON for counsellor
+        response_data = schemas.UnifiedUserResponse(
+            id=counsellor.id,
+            email=counsellor.email,
+            role=counsellor.role,
+            created_at=counsellor.created_at,
+            name=counsellor.name,
+            phone_number=counsellor.phone_number,
+            gender=counsellor.gender,
+            country=counsellor.country,
+            state=counsellor.state,
+            date_of_birth=counsellor.date_of_birth,
+            address=counsellor.address,
+            years_of_experience=counsellor.years_of_experience,
+            has_certification=counsellor.has_certification,
+            denomination=counsellor.denomination,
+            will_attend_ymr=counsellor.will_attend_ymr,
+            is_available_for_training=counsellor.is_available_for_training,
+            profile_image_url=counsellor.profile_image_url,
+            certificates=json.loads(counsellor.certificates) if counsellor.certificates else None,
+            is_active=counsellor.is_active
+        )
+        return response_data
+    
+    # Check if regular user
+    user = db.query(models.User).filter(
+        models.User.email == current_user.email
+    ).first()
+    
+    if user:
+        return schemas.UnifiedUserResponse(
+            id=user.id,
+            email=user.email,
+            role=user.role,
+            created_at=user.created_at
+        )
+    
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="User profile not found"
+    )
+
+
+@router.put("/me", response_model=schemas.CounsellorResponseWrapper)
+async def update_my_profile(
+    name: Optional[str] = Form(None),
+    phone_number: Optional[str] = Form(None),
+    gender: Optional[str] = Form(None),
+    country: Optional[str] = Form(None),
+    state: Optional[str] = Form(None),
+    date_of_birth: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    years_of_experience: Optional[int] = Form(None),
+    has_certification: Optional[bool] = Form(None),
+    denomination: Optional[str] = Form(None),
+    will_attend_ymr: Optional[bool] = Form(None),
+    is_available_for_training: Optional[bool] = Form(None),
+    profile_image: Optional[UploadFile] = File(None),
+    certificates: Optional[List[UploadFile]] = File(None),
+    db: Session = Depends(get_db),
+    current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
+):
+    """Update the logged-in user's profile (Counsellor only - Users have limited profile fields)"""
+    from app.services.s3_upload import s3_service
+    import json
+    
+    # Check if user is a counsellor (only counsellors have extended profiles to update)
+    counsellor_query = db.query(models.Counsellor).filter(
+        models.Counsellor.email == current_user.email
+    )
+    counsellor = counsellor_query.first()
+    
+    if not counsellor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Only counsellors can update profile via this endpoint. Regular users have limited profile fields."
+        )
+    
+    try:
+        # Build update dict from provided fields
+        update_dict = {}
+        if name is not None:
+            update_dict["name"] = name
+        if phone_number is not None:
+            update_dict["phone_number"] = phone_number
+        if gender is not None:
+            update_dict["gender"] = gender
+        if country is not None:
+            update_dict["country"] = country
+        if state is not None:
+            update_dict["state"] = state
+        if date_of_birth is not None:
+            update_dict["date_of_birth"] = date_of_birth
+        if address is not None:
+            update_dict["address"] = address
+        if years_of_experience is not None:
+            update_dict["years_of_experience"] = years_of_experience
+        if has_certification is not None:
+            update_dict["has_certification"] = has_certification
+        if denomination is not None:
+            update_dict["denomination"] = denomination
+        if will_attend_ymr is not None:
+            update_dict["will_attend_ymr"] = will_attend_ymr
+        if is_available_for_training is not None:
+            update_dict["is_available_for_training"] = is_available_for_training
+        
+        # Upload new profile image if provided
+        if profile_image:
+            # Delete old image if exists
+            if counsellor.profile_image_url:
+                s3_service.delete_file(counsellor.profile_image_url)
+            
+            profile_url = await s3_service.upload_file(profile_image, "counsellors/profiles")
+            update_dict["profile_image_url"] = profile_url
+        
+        # Upload new certificates if provided
+        if certificates:
+            # Delete old certificates if exist
+            if counsellor.certificates:
+                old_certs = json.loads(counsellor.certificates)
+                for cert_url in old_certs:
+                    s3_service.delete_file(cert_url)
+            
+            cert_urls = await s3_service.upload_multiple_files(certificates, "counsellors/certificates")
+            update_dict["certificates"] = json.dumps(cert_urls)
+        
+        # Update counsellor
+        counsellor_query.update(update_dict, synchronize_session=False)
+        db.commit()
+        db.refresh(counsellor)
+        
+        # Parse certificates for response
+        response_data = schemas.CounsellorResponse.from_orm(counsellor)
+        if counsellor.certificates:
+            response_data.certificates = json.loads(counsellor.certificates)
+        
+        return { "status": "success", "data": response_data }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred: {str(e)}"
+        )
+
+
+@router.put("/me/password", status_code=status.HTTP_200_OK)
+def change_password(
+    password_data: schemas.PasswordChangeRequest,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
+):
+    """Change the logged-in user's password"""
+    from app import utils
+    
+    # Check counsellor first
+    counsellor = db.query(models.Counsellor).filter(
+        models.Counsellor.email == current_user.email
+    ).first()
+    
+    if counsellor:
+        # Verify current password
+        if not utils.verify(password_data.current_password, counsellor.password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+        
+        # Hash and update new password
+        counsellor.password = utils.hash(password_data.new_password)
+        db.commit()
+        
+        return {
+            "status": "success",
+            "message": "Password changed successfully"
+        }
+    
+    # Check regular user
+    user = db.query(models.User).filter(
+        models.User.email == current_user.email
+    ).first()
+    
+    if user:
+        # Verify current password
+        if not utils.verify(password_data.current_password, user.password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+        
+        # Hash and update new password
+        user.password = utils.hash(password_data.new_password)
+        db.commit()
+        
+        return {
+            "status": "success",
+            "message": "Password changed successfully"
+        }
+    
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="User not found"
+    )
+
+
+# ============================================================================
+# ADMIN ENDPOINTS - Must come after /me routes
+# ============================================================================
+
 @router.get("/{id}", response_model=schemas.CounsellorResponseWrapper)
 def get_counsellor(id: int, db: Session = Depends(get_db), current_user: schemas.UserCreate = Depends(oauth2.get_current_user)):
     
@@ -313,211 +540,8 @@ def delete_counsellor(id: int, db: Session = Depends(get_db), current_user: sche
     # return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# ============================================================================
-# COUNSELLOR SELF-SERVICE ENDPOINTS
-# ============================================================================
-
-@router.get("/me", response_model=schemas.UnifiedUserResponse)
-def get_my_profile(
-    db: Session = Depends(get_db),
-    current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
-):
-    """Get the complete profile of the logged-in user (User or Counsellor)"""
-    import json
-    
-    # Check if user is a counsellor first
-    counsellor = db.query(models.Counsellor).filter(
-        models.Counsellor.email == current_user.email
-    ).first()
-    
-    if counsellor:
-        # Parse certificates JSON for counsellor
-        response_data = schemas.UnifiedUserResponse(
-            id=counsellor.id,
-            email=counsellor.email,
-            role=counsellor.role,
-            created_at=counsellor.created_at,
-            name=counsellor.name,
-            phone_number=counsellor.phone_number,
-            gender=counsellor.gender,
-            country=counsellor.country,
-            state=counsellor.state,
-            date_of_birth=counsellor.date_of_birth,
-            address=counsellor.address,
-            years_of_experience=counsellor.years_of_experience,
-            has_certification=counsellor.has_certification,
-            denomination=counsellor.denomination,
-            will_attend_ymr=counsellor.will_attend_ymr,
-            is_available_for_training=counsellor.is_available_for_training,
-            profile_image_url=counsellor.profile_image_url,
-            certificates=json.loads(counsellor.certificates) if counsellor.certificates else None,
-            is_active=counsellor.is_active
-        )
-        return response_data
-    
-    # Check if regular user
-    user = db.query(models.User).filter(
-        models.User.email == current_user.email
-    ).first()
-    
-    if user:
-        return schemas.UnifiedUserResponse(
-            id=user.id,
-            email=user.email,
-            role=user.role,
-            created_at=user.created_at
-        )
-    
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="User profile not found"
-    )
-
-
-@router.put("/me", response_model=schemas.CounsellorResponseWrapper)
-async def update_my_profile(
-    name: Optional[str] = Form(None),
-    phone_number: Optional[str] = Form(None),
-    gender: Optional[str] = Form(None),
-    country: Optional[str] = Form(None),
-    state: Optional[str] = Form(None),
-    date_of_birth: Optional[str] = Form(None),
-    address: Optional[str] = Form(None),
-    years_of_experience: Optional[int] = Form(None),
-    has_certification: Optional[bool] = Form(None),
-    denomination: Optional[str] = Form(None),
-    will_attend_ymr: Optional[bool] = Form(None),
-    is_available_for_training: Optional[bool] = Form(None),
-    profile_image: Optional[UploadFile] = File(None),
-    certificates: Optional[List[UploadFile]] = File(None),
-    db: Session = Depends(get_db),
-    current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
-):
-    """Update the logged-in user's profile (Counsellor only - Users have limited profile fields)"""
-    from app.services.s3_upload import s3_service
-    import json
-    
-    # Check if user is a counsellor (only counsellors have extended profiles to update)
-    counsellor_query = db.query(models.Counsellor).filter(
-        models.Counsellor.email == current_user.email
-    )
-    counsellor = counsellor_query.first()
-    
-    if not counsellor:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Only counsellors can update profile via this endpoint. Regular users have limited profile fields."
-        )
-    
-    try:
-        # Build update dict from provided fields
-        update_dict = {}
-        if name is not None:
-            update_dict["name"] = name
-        if phone_number is not None:
-            update_dict["phone_number"] = phone_number
-        if gender is not None:
-            update_dict["gender"] = gender
-        if country is not None:
-            update_dict["country"] = country
-        if state is not None:
-            update_dict["state"] = state
-        if date_of_birth is not None:
-            update_dict["date_of_birth"] = date_of_birth
-        if address is not None:
-            update_dict["address"] = address
-        if years_of_experience is not None:
-            update_dict["years_of_experience"] = years_of_experience
-        if has_certification is not None:
-            update_dict["has_certification"] = has_certification
-        if denomination is not None:
-            update_dict["denomination"] = denomination
-        if will_attend_ymr is not None:
-            update_dict["will_attend_ymr"] = will_attend_ymr
-        if is_available_for_training is not None:
-            update_dict["is_available_for_training"] = is_available_for_training
-        
-        # Upload new profile image if provided
-        if profile_image:
-            # Delete old image if exists
-            if counsellor.profile_image_url:
-                s3_service.delete_file(counsellor.profile_image_url)
-            
-            profile_url = await s3_service.upload_file(profile_image, "counsellors/profiles")
-            update_dict["profile_image_url"] = profile_url
-        
-        # Upload new certificates if provided
-        if certificates:
-            # Delete old certificates if exist
-            if counsellor.certificates:
-                old_certs = json.loads(counsellor.certificates)
-                for cert_url in old_certs:
-                    s3_service.delete_file(cert_url)
-            
-            cert_urls = await s3_service.upload_multiple_files(certificates, "counsellors/certificates")
-            update_dict["certificates"] = json.dumps(cert_urls)
-        
-        # Update counsellor
-        counsellor_query.update(update_dict, synchronize_session=False)
-        db.commit()
-        db.refresh(counsellor)
-        
-        # Parse certificates for response
-        response_data = schemas.CounsellorResponse.from_orm(counsellor)
-        if counsellor.certificates:
-            response_data.certificates = json.loads(counsellor.certificates)
-        
-        return { "status": "success", "data": response_data }
-        
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred: {str(e)}"
-        )
-
-
-@router.put("/me/password", status_code=status.HTTP_200_OK)
-def change_password(
-    password_data: schemas.PasswordChangeRequest,
-    db: Session = Depends(get_db),
-    current_user: schemas.UserCreate = Depends(oauth2.get_current_user)
-):
-    """Change the logged-in counsellor's password"""
-    from app import utils
-    
-    if current_user.role.value != "counsellor":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only counsellors can access this endpoint"
-        )
-    
-    # Get user from database
-    user = db.query(models.User).filter(models.User.email == current_user.email).first()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    # Verify current password
-    if not utils.verify(password_data.current_password, user.password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect"
-        )
-    
-    # Hash and update new password
-    hashed_password = utils.hash(password_data.new_password)
-    user.password = hashed_password
-    db.commit()
-    
-    return {
-        "status": "success",
-        "message": "Password changed successfully"
-    }
-
+# Note: All /me endpoints are defined earlier in the file (before /{id} routes)
+# to prevent route matching conflicts
 
 # ============================================================================
 # ADMIN ENDPOINTS - COUNSELLOR ACTIVATION
