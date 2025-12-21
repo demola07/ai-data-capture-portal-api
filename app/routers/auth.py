@@ -39,19 +39,19 @@ def login(user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session =
     
     if counsellor:
         # Counsellor login flow
-        if not counsellor.password:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Account not set up for login. Please contact administrator.")
-        
-        if not utils.verify(user_credentials.password, counsellor.password):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail=f"Invalid Credentials")
-        
         if not counsellor.is_active:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account is not activated. Please contact administrator.")
+        
+        if not counsellor.password:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Password not set. Please set up your password first using the setup password option.")
+        
+        if not utils.verify(user_credentials.password, counsellor.password):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail=f"Invalid Credentials")
         
         # Create unified user response with counsellor data
         certificates_list = json.loads(counsellor.certificates) if counsellor.certificates else None

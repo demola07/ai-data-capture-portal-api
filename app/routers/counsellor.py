@@ -286,6 +286,109 @@ def change_password(
 
 
 # ============================================================================
+# PUBLIC ENDPOINTS - No authentication required
+# ============================================================================
+
+@router.post("/check-password-status", status_code=status.HTTP_200_OK)
+def check_password_status(
+    email_data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Check if a counsellor needs to set up their password.
+    Returns the account status to help guide the user flow.
+    """
+    email = email_data.get("email")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is required"
+        )
+    
+    # Find counsellor by email
+    counsellor = db.query(models.Counsellor).filter(
+        models.Counsellor.email == email
+    ).first()
+    
+    if not counsellor:
+        return {
+            "status": "not_found",
+            "message": "No counsellor account found with this email",
+            "needs_password_setup": False,
+            "is_active": False
+        }
+    
+    if not counsellor.is_active:
+        return {
+            "status": "inactive",
+            "message": "Account is not yet activated. Please contact the administrator.",
+            "needs_password_setup": False,
+            "is_active": False
+        }
+    
+    if not counsellor.password:
+        return {
+            "status": "needs_password",
+            "message": "Please set up your password to continue",
+            "needs_password_setup": True,
+            "is_active": True
+        }
+    
+    return {
+        "status": "ready",
+        "message": "Account is ready. Please login with your credentials.",
+        "needs_password_setup": False,
+        "is_active": True
+    }
+
+
+@router.post("/setup-password", status_code=status.HTTP_200_OK)
+def setup_password(
+    password_data: schemas.PasswordSetupRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Allow activated counsellors without passwords to set their initial password.
+    This is a public endpoint for first-time password setup.
+    """
+    from app import utils
+    
+    # Find counsellor by email
+    counsellor = db.query(models.Counsellor).filter(
+        models.Counsellor.email == password_data.email
+    ).first()
+    
+    if not counsellor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No counsellor account found with this email"
+        )
+    
+    # Check if counsellor is activated
+    if not counsellor.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is not yet activated. Please contact the administrator."
+        )
+    
+    # Check if password is already set
+    if counsellor.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password already set. Please use the login page or reset password if you forgot it."
+        )
+    
+    # Set the password
+    counsellor.password = utils.hash(password_data.password)
+    db.commit()
+    
+    return {
+        "status": "success",
+        "message": "Password set successfully. You can now login with your credentials."
+    }
+
+
+# ============================================================================
 # ADMIN ENDPOINTS - Must come after /me routes
 # ============================================================================
 

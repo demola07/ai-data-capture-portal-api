@@ -159,6 +159,10 @@ class PasswordChangeRequest(BaseModel):
     current_password: str
     new_password: str
 
+class PasswordSetupRequest(BaseModel):
+    email: EmailStr
+    password: str
+
 class CounsellorResponseWrapper(BaseModel):
     status: Optional[str] = None
     message: Optional[str] = None
