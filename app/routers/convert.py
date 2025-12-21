@@ -138,7 +138,7 @@ def create_convert(convert: schemas.ConvertCreate, db: Session = Depends(get_db)
         )
     
 
-@router.post("/bulk", status_code=status.HTTP_201_CREATED, response_model=List[schemas.ConvertResponseWrapper])
+@router.post("/bulk", status_code=status.HTTP_201_CREATED, response_model=schemas.ConvertResponseWrapper)
 def create_converts(
     converts: List[schemas.ConvertCreate],
     db: Session = Depends(get_db),
@@ -158,7 +158,16 @@ def create_converts(
     db.add_all(new_converts)
     db.commit()
     
-    return { "message": "All data have been added successfully.", "status": "success" }
+    # Refresh all objects to get their IDs
+    for convert in new_converts:
+        db.refresh(convert)
+    
+    return { 
+        "status": "success", 
+        "message": f"Successfully created {len(new_converts)} converts",
+        "data": new_converts,
+        "total": len(new_converts)
+    }
 
 
 
