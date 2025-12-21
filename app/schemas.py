@@ -33,8 +33,7 @@ class ConvertResponse(ConvertBase):
     id: int
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}
 
 class ConvertResponseWrapper(BaseModel):
     status: Optional[str] = None
@@ -144,8 +143,7 @@ class CounsellorResponse(CounsellorBase):
     role: utils.Role
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}
 
 class CounsellorProfileResponse(CounsellorResponse):
     """Complete profile response with all details"""
@@ -290,8 +288,7 @@ class TemplateResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
     
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}
 
 
 class SendWithTemplateRequest(BaseModel):
