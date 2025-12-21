@@ -20,10 +20,8 @@ origins = [
     "https://ymrcounselling.com",
     "http://localhost:8080",
     "http://localhost:8080/"
-    "https://ba8be7b5-3c14-44c5-92fb-b3906387b4ff.lovableproject.com"
-    "https://ba8be7b5-3c14-44c5-92fb-b3906387b4ff.lovableproject.com/"
-    "https://ymr-counselling.lovable.app"
-    "https://ymr-counselling.lovable.app/"
+    "https://*.lovableproject.com"
+    "https://*.lovable.app"
 ]
 
 app.add_middleware(
