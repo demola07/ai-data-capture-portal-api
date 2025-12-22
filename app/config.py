@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     TWILIO_PHONE_NUMBER: str = ""
     
     # WhatsApp Provider Settings
-    WHATSAPP_PROVIDER: str = "twilio"  # termii or twilio
+    WHATSAPP_PROVIDER: str = "termii"  # termii or twilio
 
 
     class Config:
