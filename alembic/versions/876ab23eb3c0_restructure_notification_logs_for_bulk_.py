@@ -52,7 +52,7 @@ def upgrade() -> None:
             -- Cost and metadata
             total_cost VARCHAR DEFAULT '0' NOT NULL,
             error_message VARCHAR,
-            metadata VARCHAR,
+            meta VARCHAR,
             
             -- User tracking
             created_by INTEGER REFERENCES users(id),

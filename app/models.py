@@ -119,7 +119,7 @@ class NotificationLog(Base):
     # Cost and metadata
     total_cost = Column(String, server_default='0', nullable=False)
     error_message = Column(String, nullable=True)
-    metadata = Column(String, nullable=True)  # Additional data as JSON (e.g., media URLs for WhatsApp)
+    meta = Column(String, nullable=True)  # Additional data as JSON (e.g., media URLs for WhatsApp)
     
     # User tracking
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
