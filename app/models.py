@@ -89,43 +89,46 @@ class User(Base):
     role = Column(SQLAlchemyEnum(utils.Role, values_callable=lambda x: [e.value for e in x]), nullable=False)
 
 
-class NotificationBatch(Base):
-    """Tracks batches of notifications sent"""
-    __tablename__ = "notification_batches"
-    
-    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
-    batch_id = Column(String, unique=True, nullable=False, index=True)
-    type = Column(String, nullable=False)  # email, sms, whatsapp
-    subject = Column(String, nullable=True)
-    total_recipients = Column(Integer, nullable=False)
-    successful = Column(Integer, server_default='0', nullable=False)
-    failed = Column(Integer, server_default='0', nullable=False)
-    pending = Column(Integer, server_default='0', nullable=False)
-    total_cost = Column(String, server_default='0', nullable=False)  # Store as string to avoid precision issues
-    provider = Column(String, nullable=False)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
-    completed_at = Column(TIMESTAMP(timezone=True), nullable=True)
-
-
 class NotificationLog(Base):
-    """Tracks individual notification sends"""
+    """Tracks notification sends - optimized for bulk operations"""
     __tablename__ = "notification_logs"
     
     id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
-    batch_id = Column(String, ForeignKey("notification_batches.batch_id"), nullable=False, index=True)
-    recipient_type = Column(String, nullable=False)  # email, phone
-    recipient = Column(String, nullable=False)  # actual email or phone number
-    subject = Column(String, nullable=True)
+    batch_id = Column(String, unique=True, nullable=False, index=True)
+    
+    # Notification details
+    type = Column(String, nullable=False)  # sms, whatsapp, email
+    channel = Column(String, nullable=True)  # dnd, generic, whatsapp, voice (for Termii)
+    subject = Column(String, nullable=True)  # For email or message title
     message = Column(String, nullable=False)
-    status = Column(String, nullable=False)  # sent, failed, pending, delivered, bounced
-    provider = Column(String, nullable=False)
+    
+    # Recipient information
+    total_recipients = Column(Integer, nullable=False)
+    recipient_sample = Column(String, nullable=True)  # Store first 3 recipients as JSON array for reference
+    
+    # Status tracking
+    status = Column(String, nullable=False)  # sent, failed, partial, pending
+    successful_count = Column(Integer, server_default='0', nullable=False)
+    failed_count = Column(Integer, server_default='0', nullable=False)
+    
+    # Provider details
+    provider = Column(String, nullable=False)  # termii, twilio, sendgrid, etc.
     provider_message_id = Column(String, nullable=True)
+    provider_response = Column(String, nullable=True)  # Store full provider response as JSON
+    
+    # Cost and metadata
+    total_cost = Column(String, server_default='0', nullable=False)
     error_message = Column(String, nullable=True)
-    cost = Column(String, server_default='0', nullable=False)  # Store as string
-    sent_at = Column(TIMESTAMP(timezone=True), nullable=True)
-    delivered_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    metadata = Column(String, nullable=True)  # Additional data as JSON (e.g., media URLs for WhatsApp)
+    
+    # User tracking
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by_email = Column(String, nullable=True)  # Store email for reference
+    
+    # Timestamps
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
+    sent_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    completed_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
 
 class NotificationTemplate(Base):

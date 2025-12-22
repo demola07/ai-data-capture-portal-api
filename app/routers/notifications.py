@@ -1,39 +1,25 @@
 """
-Notification API endpoints.
+Notification API endpoints - Optimized for bulk operations.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import date
+from datetime import datetime, date
+from sqlalchemy import desc
 
 from app.database import get_db
 from app.oauth2 import get_current_user
-from app.models import User, NotificationBatch, NotificationLog
+from app.models import User, NotificationLog
 from app.schemas import (
-    EmailRequest, SMSRequest, WhatsAppRequest,
-    BatchNotificationResult, SendWithTemplateRequest
+    SMSRequest, WhatsAppRequest,
+    BatchNotificationResult, NotificationLogsResponseWrapper
 )
 from app.services.notifications.service import NotificationService
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
-@router.post("/email", response_model=BatchNotificationResult)
-async def send_email(
-    request: EmailRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Send email to one or more recipients"""
-    service = NotificationService(db)
-    result = await service.send_email(
-        to=request.to,
-        subject=request.subject,
-        body=request.body,
-        html_body=request.html_body,
-        user_id=current_user.id
-    )
-    return result
+# Email endpoint removed - focus on SMS/WhatsApp for now
 
 
 @router.post("/sms", response_model=BatchNotificationResult)
@@ -42,11 +28,22 @@ async def send_sms(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Send SMS to one or more recipients"""
+    """
+    Send SMS to one or more recipients via Termii.
+    
+    - **to**: List of phone numbers in international format (e.g., 2349012345678)
+    - **message**: Text message to send
+    - **channel**: Route type - 'generic' (promotional), 'dnd' (transactional), or 'voice'
+    - **message_type**: 'plain' or 'unicode'
+    
+    Automatically uses bulk endpoint for multiple recipients (up to 100 per batch).
+    """
     service = NotificationService(db)
     result = await service.send_sms(
         to=request.to,
         message=request.message,
+        channel=request.channel,
+        message_type=request.message_type,
         user_id=current_user.id
     )
     return result
@@ -58,120 +55,211 @@ async def send_whatsapp(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Send WhatsApp message to one or more recipients"""
+    """
+    Send WhatsApp message to one or more recipients via Termii.
+    
+    - **to**: List of phone numbers in international format (e.g., 2349012345678)
+    - **message**: Text message (optional if media is provided)
+    - **media**: Optional media object with 'url' and 'caption' for images, audio, documents, or video
+    
+    Supported media formats:
+    - Images: JPG, JPEG, PNG
+    - Audio: MP3, OGG, AMR
+    - Documents: PDF
+    - Video: MP4 (must have audio track)
+    
+    Automatically uses bulk endpoint for multiple recipients (up to 100 per batch).
+    """
     service = NotificationService(db)
     result = await service.send_whatsapp(
         to=request.to,
         message=request.message,
-        template_id=request.template_id,
+        media=request.media,
         user_id=current_user.id
     )
     return result
 
 
-@router.get("/reports/batch/{batch_id}")
-async def get_batch_report(
+@router.get("/logs/{batch_id}")
+async def get_batch_log(
     batch_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get detailed report for a specific batch"""
-    batch = db.query(NotificationBatch).filter(
-        NotificationBatch.batch_id == batch_id
+    """
+    Get detailed log for a specific notification batch.
+    
+    Returns a single log entry with summary statistics for the entire batch.
+    """
+    log = db.query(NotificationLog).filter(
+        NotificationLog.batch_id == batch_id
     ).first()
     
-    if not batch:
+    if not log:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Batch not found"
+            detail="Notification log not found"
         )
     
-    logs = db.query(NotificationLog).filter(
-        NotificationLog.batch_id == batch_id
-    ).all()
+    # Parse recipient sample if exists
+    import json
+    recipient_sample = None
+    if log.recipient_sample:
+        try:
+            recipient_sample = json.loads(log.recipient_sample)
+        except:
+            recipient_sample = []
     
     return {
-        "batch": {
-            "batch_id": batch.batch_id,
-            "type": batch.type,
-            "subject": batch.subject,
-            "total_recipients": batch.total_recipients,
-            "successful": batch.successful,
-            "failed": batch.failed,
-            "total_cost": float(batch.total_cost),
-            "provider": batch.provider,
-            "created_at": batch.created_at,
-            "completed_at": batch.completed_at
-        },
-        "summary": {
-            "total": batch.total_recipients,
-            "successful": batch.successful,
-            "failed": batch.failed,
-            "total_cost": float(batch.total_cost)
-        },
-        "details": [
-            {
-                "recipient": log.recipient,
-                "status": log.status,
-                "cost": float(log.cost),
-                "error": log.error_message,
-                "sent_at": log.sent_at
-            }
-            for log in logs
-        ]
-    }
-
-
-@router.get("/reports/summary")
-async def get_notification_summary(
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
-    notification_type: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get summary of all notifications within date range"""
-    query = db.query(NotificationBatch)
-    
-    if start_date:
-        query = query.filter(NotificationBatch.created_at >= start_date)
-    if end_date:
-        query = query.filter(NotificationBatch.created_at <= end_date)
-    if notification_type:
-        query = query.filter(NotificationBatch.type == notification_type)
-    
-    batches = query.all()
-    
-    total_sent = sum(b.successful for b in batches)
-    total_failed = sum(b.failed for b in batches)
-    total_cost = sum(float(b.total_cost) for b in batches)
-    
-    return {
-        "total_batches": len(batches),
-        "total_sent": total_sent,
-        "total_failed": total_failed,
-        "total_cost": total_cost,
-        "by_type": {
-            "email": sum(1 for b in batches if b.type == "email"),
-            "sms": sum(1 for b in batches if b.type == "sms"),
-            "whatsapp": sum(1 for b in batches if b.type == "whatsapp")
+        "status": "success",
+        "data": {
+            "id": log.id,
+            "batch_id": log.batch_id,
+            "type": log.type,
+            "channel": log.channel,
+            "message": log.message,
+            "total_recipients": log.total_recipients,
+            "recipient_sample": recipient_sample,
+            "successful_count": log.successful_count,
+            "failed_count": log.failed_count,
+            "success_rate": round((log.successful_count / log.total_recipients * 100), 2) if log.total_recipients > 0 else 0,
+            "provider": log.provider,
+            "provider_message_id": log.provider_message_id,
+            "total_cost": log.total_cost,
+            "status": log.status,
+            "error_message": log.error_message,
+            "created_by_email": log.created_by_email,
+            "created_at": log.created_at,
+            "sent_at": log.sent_at,
+            "completed_at": log.completed_at
         }
     }
 
 
-@router.post("/send-with-template", response_model=BatchNotificationResult)
-async def send_with_template(
-    request: SendWithTemplateRequest,
+@router.get("/logs", response_model=NotificationLogsResponseWrapper)
+async def get_notification_logs(
+    limit: int = Query(20, ge=1, le=100),
+    skip: int = Query(0, ge=0),
+    notification_type: Optional[str] = Query(None, description="Filter by type: sms, whatsapp"),
+    channel: Optional[str] = Query(None, description="Filter by channel: generic, dnd, whatsapp, voice"),
+    status: Optional[str] = Query(None, description="Filter by status: sent, failed, partial"),
+    start_date: Optional[date] = Query(None, description="Filter from date (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="Filter to date (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Send notifications using a template with variable substitution"""
-    service = NotificationService(db)
-    result = await service.send_with_template(
-        template_name=request.template_name,
-        recipients=request.recipients,
-        common_variables=request.common_variables,
-        user_id=current_user.id
+    """
+    Get paginated list of notification logs with filters.
+    
+    Each log entry represents a batch send with summary statistics.
+    """
+    query = db.query(NotificationLog)
+    
+    # Apply filters
+    if notification_type:
+        query = query.filter(NotificationLog.type == notification_type)
+    if channel:
+        query = query.filter(NotificationLog.channel == channel)
+    if status:
+        query = query.filter(NotificationLog.status == status)
+    if start_date:
+        query = query.filter(NotificationLog.created_at >= start_date)
+    if end_date:
+        # Add one day to include the entire end_date
+        from datetime import timedelta
+        end_datetime = datetime.combine(end_date, datetime.max.time())
+        query = query.filter(NotificationLog.created_at <= end_datetime)
+    
+    # Get total count
+    total_count = query.count()
+    
+    # Get paginated results, ordered by most recent first
+    logs = query.order_by(desc(NotificationLog.created_at)).limit(limit).offset(skip).all()
+    
+    return NotificationLogsResponseWrapper(
+        status="success",
+        data=logs,
+        total=total_count,
+        message=f"Retrieved {len(logs)} notification log(s)"
     )
-    return result
+
+
+@router.get("/stats")
+async def get_notification_stats(
+    start_date: Optional[date] = Query(None, description="Stats from date (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="Stats to date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get aggregated statistics for notifications.
+    
+    Returns summary of total sends, costs, and success rates.
+    """
+    query = db.query(NotificationLog)
+    
+    if start_date:
+        query = query.filter(NotificationLog.created_at >= start_date)
+    if end_date:
+        from datetime import timedelta
+        end_datetime = datetime.combine(end_date, datetime.max.time())
+        query = query.filter(NotificationLog.created_at <= end_datetime)
+    
+    logs = query.all()
+    
+    # Calculate aggregates
+    total_batches = len(logs)
+    total_recipients = sum(log.total_recipients for log in logs)
+    total_successful = sum(log.successful_count for log in logs)
+    total_failed = sum(log.failed_count for log in logs)
+    total_cost = sum(float(log.total_cost) for log in logs if log.total_cost)
+    
+    # Group by type
+    by_type = {}
+    for log in logs:
+        if log.type not in by_type:
+            by_type[log.type] = {
+                "batches": 0,
+                "recipients": 0,
+                "successful": 0,
+                "failed": 0,
+                "cost": 0
+            }
+        by_type[log.type]["batches"] += 1
+        by_type[log.type]["recipients"] += log.total_recipients
+        by_type[log.type]["successful"] += log.successful_count
+        by_type[log.type]["failed"] += log.failed_count
+        by_type[log.type]["cost"] += float(log.total_cost) if log.total_cost else 0
+    
+    # Group by channel
+    by_channel = {}
+    for log in logs:
+        if log.channel:
+            if log.channel not in by_channel:
+                by_channel[log.channel] = {
+                    "batches": 0,
+                    "recipients": 0,
+                    "successful": 0,
+                    "failed": 0
+                }
+            by_channel[log.channel]["batches"] += 1
+            by_channel[log.channel]["recipients"] += log.total_recipients
+            by_channel[log.channel]["successful"] += log.successful_count
+            by_channel[log.channel]["failed"] += log.failed_count
+    
+    return {
+        "status": "success",
+        "data": {
+            "summary": {
+                "total_batches": total_batches,
+                "total_recipients": total_recipients,
+                "total_successful": total_successful,
+                "total_failed": total_failed,
+                "success_rate": round((total_successful / total_recipients * 100), 2) if total_recipients > 0 else 0,
+                "total_cost": round(total_cost, 2)
+            },
+            "by_type": by_type,
+            "by_channel": by_channel
+        }
+    }
 

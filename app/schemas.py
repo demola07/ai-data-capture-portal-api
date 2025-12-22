@@ -236,12 +236,14 @@ class EmailRequest(BaseModel):
 class SMSRequest(BaseModel):
     to: List[str]
     message: str
+    channel: Optional[str] = "generic"  # generic, dnd, voice
+    message_type: Optional[str] = "plain"  # plain, unicode
 
 
 class WhatsAppRequest(BaseModel):
     to: List[str]
-    message: str
-    template_id: Optional[str] = None
+    message: Optional[str] = None
+    media: Optional[dict] = None  # {"url": "...", "caption": "..."}
 
 
 class NotificationResponseSchema(BaseModel):
@@ -251,17 +253,23 @@ class NotificationResponseSchema(BaseModel):
     provider: str
     status: str
     error: Optional[str] = None
-    cost: float = 0.0
+    cost: str = "0"
     sent_at: Optional[datetime] = None
+    total_recipients: Optional[int] = None
+    successful_count: Optional[int] = None
+    failed_count: Optional[int] = None
 
 
 class BatchNotificationResult(BaseModel):
-    total: int
-    successful: int
-    failed: int
+    status: str
     batch_id: str
-    summary: dict
-    results: List[NotificationResponseSchema]
+    total_recipients: int
+    successful_count: int
+    failed_count: int
+    total_cost: str
+    provider: str
+    message_id: Optional[str] = None
+    message: str
 
 
 # Template Schemas
@@ -300,6 +308,38 @@ class TemplateResponse(BaseModel):
     updated_at: Optional[datetime]
     
     model_config = {"from_attributes": True}
+
+
+# Notification Log Schemas
+class NotificationLogResponse(BaseModel):
+    id: int
+    batch_id: str
+    type: str
+    channel: Optional[str]
+    subject: Optional[str]
+    message: str
+    total_recipients: int
+    recipient_sample: Optional[str]  # JSON array of first 3 recipients
+    status: str
+    successful_count: int
+    failed_count: int
+    provider: str
+    provider_message_id: Optional[str]
+    total_cost: str
+    error_message: Optional[str]
+    created_by_email: Optional[str]
+    created_at: datetime
+    sent_at: Optional[datetime]
+    completed_at: Optional[datetime]
+    
+    model_config = {"from_attributes": True}
+
+
+class NotificationLogsResponseWrapper(BaseModel):
+    status: str
+    data: List[NotificationLogResponse]
+    total: int
+    message: str
 
 
 class SendWithTemplateRequest(BaseModel):

@@ -8,15 +8,22 @@ from datetime import datetime
 
 
 class NotificationResponse(BaseModel):
-    """Response from a single notification send"""
+    """Response from a notification send (single or bulk)"""
     success: bool
-    recipient: str  # email or phone number
+    recipient: str  # email, phone number, or "bulk"
     message_id: Optional[str] = None
     provider: str
-    status: str  # "sent", "failed", "pending"
+    status: str  # "sent", "failed", "pending", "partial"
     error: Optional[str] = None
-    cost: float = 0.0
+    cost: str = "0"  # Store as string to avoid precision issues
     sent_at: Optional[datetime] = None
+    provider_response: Optional[str] = None  # Full provider response as JSON
+    metadata: Optional[str] = None  # Additional metadata as JSON
+    
+    # Bulk operation fields
+    total_recipients: Optional[int] = None
+    successful_count: Optional[int] = None
+    failed_count: Optional[int] = None
 
 
 class BatchNotificationResult(BaseModel):
