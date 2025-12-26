@@ -25,10 +25,14 @@ class Settings(BaseSettings):
         return self.S3_BUCKET
     
     # Email Provider Settings
-    EMAIL_PROVIDER: str = "aws_ses"  # aws_ses or termii
+    EMAIL_PROVIDER: str = "termii"  # aws_ses or termii
     TERMII_API_KEY: str = ""
     TERMII_SENDER_ID: str = ""
+    TERMII_EMAIL_CONFIG_ID: str = ""  # Email configuration ID from Termii dashboard
     DEFAULT_FROM_EMAIL: str = ""
+    
+    # Discipleship Program Settings
+    TELEGRAM_LINK: str = "https://t.me/ymr_new_army_2025"  # Telegram group link for New Army Equipping program
 
     
     # SMS Provider Settings

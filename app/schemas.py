@@ -229,8 +229,8 @@ class CounselleeResponseWrapper(BaseModel):
 class EmailRequest(BaseModel):
     to: List[str]
     subject: str
-    body: str
-    html_body: Optional[str] = None
+    template_key: str  # Template key (e.g., "welcome", "password_reset")
+    variables: Optional[Dict[str, str]] = {}  # Optional - auto-filled if empty
 
 
 class SMSRequest(BaseModel):

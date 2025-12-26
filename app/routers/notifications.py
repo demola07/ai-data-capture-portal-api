@@ -11,7 +11,7 @@ from app.database import get_db
 from app.oauth2 import get_current_user
 from app.models import User, NotificationLog
 from app.schemas import (
-    SMSRequest, WhatsAppRequest,
+    EmailRequest, SMSRequest, WhatsAppRequest,
     BatchNotificationResult, NotificationLogsResponseWrapper
 )
 from app.services.notifications.service import NotificationService
@@ -19,7 +19,85 @@ from app.services.notifications.service import NotificationService
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
-# Email endpoint removed - focus on SMS/WhatsApp for now
+@router.get("/email/templates")
+async def get_email_templates():
+    """
+    Get all available email template keys.
+    
+    Returns a mapping of template keys to their descriptions.
+    Use these keys in the template_key field when sending emails.
+    """
+    from app.email_templates import EmailTemplates
+    
+    return {
+        "templates": {
+            "welcome": {
+                "key": "welcome",
+                "description": "New convert welcome email",
+                "auto_variables": ["convert_name", "telegram_link", "current_year"]
+            },
+            "password_reset": {
+                "key": "password_reset",
+                "description": "Password reset email",
+                "auto_variables": ["convert_name", "current_year"]
+            },
+            "order_confirmation": {
+                "key": "order_confirmation",
+                "description": "Order confirmation email",
+                "auto_variables": ["convert_name", "current_year"]
+            },
+            "notification": {
+                "key": "notification",
+                "description": "General notification email",
+                "auto_variables": ["convert_name", "current_year"]
+            }
+        },
+        "note": "Template IDs are managed server-side. Just use the template key."
+    }
+
+
+@router.post("/email", response_model=BatchNotificationResult)
+async def send_email(
+    request: EmailRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Send templated email to one or more recipients via Termii.
+    
+    - **to**: List of email addresses
+    - **subject**: Email subject line
+    - **template_key**: Template key (e.g., "welcome", "password_reset", "notification")
+    - **variables**: Optional - auto-filled if empty (convert_name, telegram_link, current_year)
+    
+    Available template keys:
+    - "welcome" - New convert welcome email
+    - "password_reset" - Password reset email
+    - "order_confirmation" - Order confirmation email
+    - "notification" - General notification email
+    
+    Names are automatically fetched from database based on email addresses!
+    """
+    from app.email_templates import EmailTemplates
+    
+    # Resolve template key to Termii template ID
+    try:
+        template_id = EmailTemplates.get_template_id(request.template_key)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    
+    service = NotificationService(db)
+    result = await service.send_email(
+        to=request.to,
+        subject=request.subject,
+        template_id=template_id,
+        variables=request.variables or {},
+        user_id=current_user.id
+    )
+    return result
 
 
 @router.post("/sms", response_model=BatchNotificationResult)

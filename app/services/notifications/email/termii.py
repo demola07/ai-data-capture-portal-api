@@ -1,55 +1,73 @@
 """
-Termii Email Provider implementation.
+Termii Email Provider implementation with template support.
 """
 import httpx
-from typing import List, Optional
+import json
+from typing import List, Optional, Dict
 from datetime import datetime
 import logging
 
 from app.services.notifications.base import EmailProvider, NotificationResponse
-from app.constants import NotificationStatus, ProviderCosts
+from app.constants import NotificationStatus
 
 logger = logging.getLogger(__name__)
 
 
 class TermiiEmailProvider(EmailProvider):
-    """Termii email provider implementation"""
+    """Termii email provider with template support"""
     
-    BASE_URL = "https://api.ng.termii.com/api/email/send"
+    BASE_URL = "https://api.termii.com/api/templates/send-email"
     
-    def __init__(self, api_key: str, sender_id: str, default_from_email: str):
+    def __init__(self, api_key: str, email_configuration_id: str):
         self.api_key = api_key
-        self.sender_id = sender_id
-        self.default_from_email = default_from_email
+        self.email_configuration_id = email_configuration_id
         self.provider_name = "termii"
     
     async def send_email(
         self,
         to: List[str],
         subject: str,
-        body: str,
-        html_body: Optional[str] = None,
+        template_id: str,
+        variables: Dict[str, str],
         from_email: Optional[str] = None
     ) -> NotificationResponse:
-        """Send email via Termii API"""
+        """
+        Send templated email via Termii API.
         
-        sender = from_email or self.default_from_email
-        recipient = to[0] if len(to) == 1 else to[0]  # Send to one recipient at a time
+        Args:
+            to: List of email addresses (only first one is used per call)
+            subject: Email subject line
+            template_id: Termii template ID from dashboard
+            variables: Key-value pairs for template variables
+            from_email: Not used (configured in Termii dashboard)
+        """
+        
+        recipient = to[0] if to else None
+        if not recipient:
+            return NotificationResponse(
+                success=False,
+                recipient="",
+                provider=self.provider_name,
+                status=NotificationStatus.FAILED,
+                error="No recipient provided",
+                cost="0"
+            )
         
         try:
             async with httpx.AsyncClient() as client:
                 payload = {
                     "api_key": self.api_key,
-                    "email_from": sender,
-                    "email_to": recipient,
+                    "email": recipient,
                     "subject": subject,
-                    "email_body": html_body or body,
-                    "email_type": "html" if html_body else "plain"
+                    "email_configuration_id": self.email_configuration_id,
+                    "template_id": template_id,
+                    "variables": variables
                 }
                 
                 response = await client.post(
                     self.BASE_URL,
                     json=payload,
+                    headers={"Content-Type": "application/json"},
                     timeout=30.0
                 )
                 
@@ -62,8 +80,10 @@ class TermiiEmailProvider(EmailProvider):
                         message_id=response_data.get("message_id"),
                         provider=self.provider_name,
                         status=NotificationStatus.SENT,
-                        cost=ProviderCosts.TERMII_EMAIL,
-                        sent_at=datetime.utcnow()
+                        cost=str(response_data.get("balance", "0")),
+                        sent_at=datetime.utcnow(),
+                        provider_response=json.dumps(response_data),
+                        metadata=json.dumps({"template_id": template_id, "variables": variables})
                     )
                 else:
                     error_message = response_data.get("message", "Unknown error")
@@ -75,7 +95,7 @@ class TermiiEmailProvider(EmailProvider):
                         provider=self.provider_name,
                         status=NotificationStatus.FAILED,
                         error=error_message,
-                        cost=0.0
+                        cost="0"
                     )
                     
         except httpx.TimeoutException:
@@ -86,7 +106,7 @@ class TermiiEmailProvider(EmailProvider):
                 provider=self.provider_name,
                 status=NotificationStatus.FAILED,
                 error="Request timeout",
-                cost=0.0
+                cost="0"
             )
         except Exception as e:
             logger.error(f"Unexpected error sending email via Termii: {str(e)}")
@@ -97,5 +117,5 @@ class TermiiEmailProvider(EmailProvider):
                 provider=self.provider_name,
                 status=NotificationStatus.FAILED,
                 error=str(e),
-                cost=0.0
+                cost="0"
             )

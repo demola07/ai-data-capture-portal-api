@@ -26,8 +26,18 @@ def get_email_provider() -> EmailProvider:
             default_from_email=settings.DEFAULT_FROM_EMAIL
         )
     
+    elif provider == "termii":
+        if not settings.TERMII_API_KEY or not settings.TERMII_EMAIL_CONFIG_ID:
+            raise ValueError(f"{ErrorMessages.MISSING_CREDENTIALS}: Termii - Please set TERMII_API_KEY and TERMII_EMAIL_CONFIG_ID in your .env file")
+        
+        from app.services.notifications.email.termii import TermiiEmailProvider
+        return TermiiEmailProvider(
+            api_key=settings.TERMII_API_KEY,
+            email_configuration_id=settings.TERMII_EMAIL_CONFIG_ID
+        )
+    
     else:
-        raise ValueError(f"{ErrorMessages.PROVIDER_NOT_FOUND}: {provider} - Only 'aws_ses' is supported for email")
+        raise ValueError(f"{ErrorMessages.PROVIDER_NOT_FOUND}: {provider} - Supported providers: 'aws_ses', 'termii'")
 
 
 def get_sms_provider() -> SMSProvider:
