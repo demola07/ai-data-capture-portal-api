@@ -29,30 +29,16 @@ async def get_email_templates():
     """
     from app.email_templates import EmailTemplates
     
+    # Dynamically build template info from EmailTemplates class
+    templates_info = {}
+    for key in EmailTemplates.TEMPLATES.keys():
+        templates_info[key] = {
+            "key": key,
+            "configured": bool(EmailTemplates.TEMPLATES[key])  # Check if ID is set
+        }
+    
     return {
-        "templates": {
-            "welcome": {
-                "key": "welcome",
-                "description": "New convert welcome email",
-                "auto_variables": ["convert_name", "telegram_link", "current_year"]
-            },
-            "password_reset": {
-                "key": "password_reset",
-                "description": "Password reset email",
-                "auto_variables": ["convert_name", "current_year"]
-            },
-            "order_confirmation": {
-                "key": "order_confirmation",
-                "description": "Order confirmation email",
-                "auto_variables": ["convert_name", "current_year"]
-            },
-            "notification": {
-                "key": "notification",
-                "description": "General notification email",
-                "auto_variables": ["convert_name", "current_year"]
-            }
-        },
-        "note": "Template IDs are managed server-side. Just use the template key."
+        "templates": templates_info,
     }
 
 
