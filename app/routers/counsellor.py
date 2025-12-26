@@ -206,10 +206,11 @@ async def update_my_profile(
             cert_urls = await s3_service.upload_multiple_files(certificates, "counsellors/certificates")
             update_dict["certificates"] = json.dumps(cert_urls)
         
-        # Update counsellor
-        counsellor_query.update(update_dict, synchronize_session=False)
-        db.commit()
-        db.refresh(counsellor)
+        # Update counsellor only if there are fields to update
+        if update_dict:
+            counsellor_query.update(update_dict, synchronize_session=False)
+            db.commit()
+            db.refresh(counsellor)
         
         # Parse certificates for response
         response_data = schemas.CounsellorResponse.from_orm(counsellor)
