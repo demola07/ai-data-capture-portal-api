@@ -110,6 +110,9 @@ async def send_sms(
     - Deduplicated
     
     Invalid/incomplete numbers are silently filtered out.
+    
+    For large recipient lists (>100), messages are automatically sent in batches of 100
+    concurrently. All batches are processed and results are aggregated.
     """
     from app.utils.phone_validator import validate_and_format_phones
     
