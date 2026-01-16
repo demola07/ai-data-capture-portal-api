@@ -95,16 +95,37 @@ async def send_sms(
     """
     Send SMS to one or more recipients via Termii.
     
-    - **to**: List of phone numbers in international format (e.g., 2349012345678)
+    - **to**: List of Nigerian phone numbers in any format (e.g., 08012345678, 2348012345678, +2348012345678)
     - **message**: Text message to send
     - **channel**: Route type - 'generic' (promotional), 'dnd' (transactional), or 'voice'
     - **message_type**: 'plain' or 'unicode'
     
+    Phone numbers are automatically validated and formatted to +234XXXXXXXXXX format.
     Automatically uses bulk endpoint for multiple recipients (up to 100 per batch).
     """
+    from app.utils.phone_validator import validate_and_format_phones
+    
+    # Validate and format phone numbers
+    formatted_numbers, errors = validate_and_format_phones(request.to)
+    
+    # If there are any invalid numbers, return error
+    if errors:
+        error_details = "; ".join([f"{err['phone']}: {err['error']}" for err in errors])
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid phone numbers detected: {error_details}"
+        )
+    
+    # If no valid numbers after formatting, return error
+    if not formatted_numbers:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid phone numbers provided"
+        )
+    
     service = NotificationService(db)
     result = await service.send_sms(
-        to=request.to,
+        to=formatted_numbers,  # Use formatted numbers
         message=request.message,
         channel=request.channel,
         message_type=request.message_type,
