@@ -95,32 +95,32 @@ async def send_sms(
     """
     Send SMS to one or more recipients via Termii.
     
-    - **to**: List of Nigerian phone numbers in any format (e.g., 08012345678, 2348012345678, +2348012345678)
+    - **to**: List of Nigerian phone numbers in any format
+      - Accepts: 08012345678, 2348012345678, +2348012345678, +234 801 234 5678
+      - Handles multiple numbers in one string: "08012345678, 09012345678" or "08012345678/09012345678"
+      - Automatically filters out invalid entries (Nil, incomplete numbers)
     - **message**: Text message to send
     - **channel**: Route type - 'generic' (promotional), 'dnd' (transactional), or 'voice'
     - **message_type**: 'plain' or 'unicode'
     
-    Phone numbers are automatically validated and formatted to +234XXXXXXXXXX format.
-    Automatically uses bulk endpoint for multiple recipients (up to 100 per batch).
+    Phone numbers are automatically:
+    - Split if multiple numbers in one string
+    - Cleaned (removes spaces, dots, dashes, etc.)
+    - Validated and formatted to +234XXXXXXXXXX
+    - Deduplicated
+    
+    Invalid/incomplete numbers are silently filtered out.
     """
     from app.utils.phone_validator import validate_and_format_phones
     
-    # Validate and format phone numbers
-    formatted_numbers, errors = validate_and_format_phones(request.to)
+    # Validate and format phone numbers (flexible parsing)
+    formatted_numbers, stats = validate_and_format_phones(request.to)
     
-    # If there are any invalid numbers, return error
-    if errors:
-        error_details = "; ".join([f"{err['phone']}: {err['error']}" for err in errors])
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid phone numbers detected: {error_details}"
-        )
-    
-    # If no valid numbers after formatting, return error
+    # If no valid numbers after processing, return error
     if not formatted_numbers:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No valid phone numbers provided"
+            detail=f"No valid phone numbers found. Processed {stats['total_input']} inputs, extracted {stats['total_extracted']} numbers, but all were invalid or incomplete."
         )
     
     service = NotificationService(db)
@@ -131,6 +131,15 @@ async def send_sms(
         message_type=request.message_type,
         user_id=current_user.id
     )
+    
+    # Add processing stats to result message
+    result.message = (
+        f"{result.message} | "
+        f"Processed: {stats['total_input']} inputs → "
+        f"{stats['total_extracted']} extracted → "
+        f"{stats['total_valid']} valid (filtered {stats['filtered_count']}, removed {stats['duplicate_count']} duplicates)"
+    )
+    
     return result
 
 
