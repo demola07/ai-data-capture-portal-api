@@ -106,7 +106,7 @@ async def send_sms(
     Phone numbers are automatically:
     - Split if multiple numbers in one string
     - Cleaned (removes spaces, dots, dashes, etc.)
-    - Validated and formatted to +234XXXXXXXXXX
+    - Validated and formatted to 234XXXXXXXXXX (Termii format, no + sign)
     - Deduplicated
     
     Invalid/incomplete numbers are silently filtered out.

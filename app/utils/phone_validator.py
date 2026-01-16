@@ -99,7 +99,7 @@ def is_invalid_entry(phone: str) -> bool:
 
 def format_nigerian_phone(phone: str) -> Optional[str]:
     """
-    Format a Nigerian phone number to +234XXXXXXXXXX format.
+    Format a Nigerian phone number to 234XXXXXXXXXX format (Termii format).
     
     Accepts formats:
     - 08012345678 (starts with 0)
@@ -113,7 +113,7 @@ def format_nigerian_phone(phone: str) -> Optional[str]:
         phone: Phone number string in various formats
         
     Returns:
-        Formatted phone number as +234XXXXXXXXXX or None if invalid
+        Formatted phone number as 234XXXXXXXXXX (without +) or None if invalid
     """
     if not phone or is_invalid_entry(phone):
         return None
@@ -132,20 +132,20 @@ def format_nigerian_phone(phone: str) -> Optional[str]:
     if cleaned.startswith('234'):
         # Already has country code: 234XXXXXXXXXX
         if len(cleaned) == 13:  # 234 + 10 digits
-            return f"+{cleaned}"
+            return cleaned  # Return without +
         else:
             return None  # Invalid length
     
     elif cleaned.startswith('0'):
         # Local format with leading 0: 08012345678
         if len(cleaned) == 11:  # 0 + 10 digits
-            return f"+234{cleaned[1:]}"  # Remove leading 0, add +234
+            return f"234{cleaned[1:]}"  # Remove leading 0, add 234 (no +)
         else:
             return None  # Invalid length (incomplete or too long)
     
     elif len(cleaned) == 10:
         # Local format without leading 0: 8012345678
-        return f"+234{cleaned}"
+        return f"234{cleaned}"  # Add 234 (no +)
     
     else:
         return None  # Invalid format
