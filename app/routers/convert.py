@@ -105,6 +105,151 @@ def get_converts(
         )
 
 
+@router.get("/download")
+def download_converts(
+    db: Session = Depends(get_db),
+    current_user: schemas.UserCreate = Depends(oauth2.get_current_user),
+    searchQuery: Optional[str] = "",
+    state: Optional[str] = None,
+    country: Optional[str] = None,
+    address: Optional[str] = None,
+    columns: Optional[str] = None
+):
+    """
+    Download converts data as CSV with optional column selection.
+    
+    Filters (same as GET /converts):
+    - **searchQuery**: Search by name, email, or phone number
+    - **state**: Filter by state (case-insensitive)
+    - **country**: Filter by country (case-insensitive)
+    - **address**: Filter by address (case-insensitive)
+    
+    Column Selection:
+    - **columns**: Comma-separated list of columns to include (e.g., "name,phone_number,address,state")
+    - If not provided, all columns are included
+    
+    Available columns:
+    id, name, gender, email, phone_number, date_of_birth, relationship_status,
+    country, state, address, nearest_bus_stop, is_student, age_group, school,
+    occupation, denomination, availability_for_follow_up, online, created_at
+    
+    Example: /api/converts/download?state=Lagos&columns=name,phone_number,address
+    """
+    try:
+        # Authorization check
+        if current_user.role not in ("admin", "super-admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to access this resource"
+            )
+
+        # Start with base query
+        query = db.query(models.Convert)
+        
+        # Apply general search filter (name, email, phone)
+        if searchQuery:
+            query = query.filter(
+                or_(
+                    models.Convert.name.ilike(f"%{searchQuery}%"),
+                    models.Convert.email.ilike(f"%{searchQuery}%"),
+                    models.Convert.phone_number.ilike(f"%{searchQuery}%")
+                )
+            )
+        
+        # Apply state filter
+        if state:
+            query = query.filter(models.Convert.state.ilike(f"%{state}%"))
+        
+        # Apply country filter
+        if country:
+            query = query.filter(models.Convert.country.ilike(f"%{country}%"))
+        
+        # Apply address filter
+        if address:
+            query = query.filter(models.Convert.address.ilike(f"%{address}%"))
+
+        # Get all matching records (no pagination for download)
+        converts = query.all()
+
+        if not converts:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No converts found matching the filters"
+            )
+
+        # Define all available columns
+        all_columns = [
+            'id', 'name', 'gender', 'email', 'phone_number', 'date_of_birth',
+            'relationship_status', 'country', 'state', 'address', 'nearest_bus_stop',
+            'is_student', 'age_group', 'school', 'occupation', 'denomination',
+            'availability_for_follow_up', 'online', 'created_at'
+        ]
+        
+        # Parse selected columns
+        if columns:
+            selected_columns = [col.strip() for col in columns.split(',')]
+            # Validate columns
+            invalid_columns = [col for col in selected_columns if col not in all_columns]
+            if invalid_columns:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid columns: {', '.join(invalid_columns)}. Available columns: {', '.join(all_columns)}"
+                )
+        else:
+            selected_columns = all_columns
+
+        # Create CSV in memory
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=selected_columns)
+        writer.writeheader()
+        
+        # Write data rows
+        for convert in converts:
+            row = {}
+            for col in selected_columns:
+                value = getattr(convert, col, None)
+                # Convert boolean to string for CSV
+                if isinstance(value, bool):
+                    row[col] = str(value)
+                else:
+                    row[col] = value if value is not None else ""
+            writer.writerow(row)
+        
+        # Prepare the response
+        output.seek(0)
+        
+        # Generate filename with filters
+        filename_parts = ["converts"]
+        if state:
+            filename_parts.append(f"state_{state}")
+        if country:
+            filename_parts.append(f"country_{country}")
+        if searchQuery:
+            filename_parts.append("filtered")
+        filename = "_".join(filename_parts) + ".csv"
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+    
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error occurred: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred: {str(e)}"
+        )
+
+
 @router.get("/{id}", response_model=schemas.ConvertResponseWrapper)
 def get_convert(id: int, db: Session = Depends(get_db), current_user: schemas.UserCreate = Depends(oauth2.get_current_user)):
     try:
@@ -282,148 +427,3 @@ def delete_convert(id: int, db: Session = Depends(get_db), current_user: schemas
 
     return { "status": "success" }
     # return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.get("/download")
-def download_converts(
-    db: Session = Depends(get_db),
-    current_user: schemas.UserCreate = Depends(oauth2.get_current_user),
-    searchQuery: Optional[str] = "",
-    state: Optional[str] = None,
-    country: Optional[str] = None,
-    address: Optional[str] = None,
-    columns: Optional[str] = None
-):
-    """
-    Download converts data as CSV with optional column selection.
-    
-    Filters (same as GET /converts):
-    - **searchQuery**: Search by name, email, or phone number
-    - **state**: Filter by state (case-insensitive)
-    - **country**: Filter by country (case-insensitive)
-    - **address**: Filter by address (case-insensitive)
-    
-    Column Selection:
-    - **columns**: Comma-separated list of columns to include (e.g., "name,phone_number,address,state")
-    - If not provided, all columns are included
-    
-    Available columns:
-    id, name, gender, email, phone_number, date_of_birth, relationship_status,
-    country, state, address, nearest_bus_stop, is_student, age_group, school,
-    occupation, denomination, availability_for_follow_up, online, created_at
-    
-    Example: /api/converts/download?state=Lagos&columns=name,phone_number,address
-    """
-    try:
-        # Authorization check
-        if current_user.role not in ("admin", "super-admin"):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not authorized to access this resource"
-            )
-
-        # Start with base query
-        query = db.query(models.Convert)
-        
-        # Apply general search filter (name, email, phone)
-        if searchQuery:
-            query = query.filter(
-                or_(
-                    models.Convert.name.ilike(f"%{searchQuery}%"),
-                    models.Convert.email.ilike(f"%{searchQuery}%"),
-                    models.Convert.phone_number.ilike(f"%{searchQuery}%")
-                )
-            )
-        
-        # Apply state filter
-        if state:
-            query = query.filter(models.Convert.state.ilike(f"%{state}%"))
-        
-        # Apply country filter
-        if country:
-            query = query.filter(models.Convert.country.ilike(f"%{country}%"))
-        
-        # Apply address filter
-        if address:
-            query = query.filter(models.Convert.address.ilike(f"%{address}%"))
-
-        # Get all matching records (no pagination for download)
-        converts = query.all()
-
-        if not converts:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No converts found matching the filters"
-            )
-
-        # Define all available columns
-        all_columns = [
-            'id', 'name', 'gender', 'email', 'phone_number', 'date_of_birth',
-            'relationship_status', 'country', 'state', 'address', 'nearest_bus_stop',
-            'is_student', 'age_group', 'school', 'occupation', 'denomination',
-            'availability_for_follow_up', 'online', 'created_at'
-        ]
-        
-        # Parse selected columns
-        if columns:
-            selected_columns = [col.strip() for col in columns.split(',')]
-            # Validate columns
-            invalid_columns = [col for col in selected_columns if col not in all_columns]
-            if invalid_columns:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid columns: {', '.join(invalid_columns)}. Available columns: {', '.join(all_columns)}"
-                )
-        else:
-            selected_columns = all_columns
-
-        # Create CSV in memory
-        output = io.StringIO()
-        writer = csv.DictWriter(output, fieldnames=selected_columns)
-        writer.writeheader()
-        
-        # Write data rows
-        for convert in converts:
-            row = {}
-            for col in selected_columns:
-                value = getattr(convert, col, None)
-                # Convert boolean to string for CSV
-                if isinstance(value, bool):
-                    row[col] = str(value)
-                else:
-                    row[col] = value if value is not None else ""
-            writer.writerow(row)
-        
-        # Prepare the response
-        output.seek(0)
-        
-        # Generate filename with filters
-        filename_parts = ["converts"]
-        if state:
-            filename_parts.append(f"state_{state}")
-        if country:
-            filename_parts.append(f"country_{country}")
-        if searchQuery:
-            filename_parts.append("filtered")
-        filename = "_".join(filename_parts) + ".csv"
-        
-        return StreamingResponse(
-            iter([output.getvalue()]),
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": f"attachment; filename={filename}"
-            }
-        )
-    
-    except HTTPException:
-        raise
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error occurred: {str(e)}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred: {str(e)}"
-        )
